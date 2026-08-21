@@ -1,0 +1,39 @@
+{
+  "project": "ehime-evacuation-risk-map",
+  "checkpoint_type": "reported_intermediate_state",
+  "checkpoint_date": "2026-08-22",
+  "source": "previous_work_report_in_conversation",
+  "verified_in_current_workspace": false,
+  "analysis_area": {
+    "municipality_count": 14,
+    "municipalities": [
+      "四国中央市", "新居浜市", "西条市", "上島町", "今治市", "松山市", "松前町",
+      "伊予市", "大洲市", "八幡浜市", "伊方町", "西予市", "宇和島市", "愛南町"
+    ]
+  },
+  "reported_intermediate_results": {
+    "population_mesh_500m_count": 5947,
+    "shelter_attribute_total": 1973,
+    "shelter_coordinate_join": {
+      "matched_by_id": 1891,
+      "matched_by_name_address": 54,
+      "unmatched": 26,
+      "duplicate": 2
+    },
+    "population_missing_policy": "preserve_null_and_quality_flags; do_not_convert_missing_to_zero",
+    "tsunami_aggregation_status": "started; output not preserved in current workspace"
+  },
+  "not_yet_saved_or_verified": [
+    "500m mesh detail data",
+    "tsunami exposure indicators",
+    "walking network",
+    "evacuation routes",
+    "route inundation exposure",
+    "shelter capacity pressure",
+    "evacuation difficulty score",
+    "React WebGIS",
+    "GitHub Pages deployment",
+    "browser and mobile verification"
+  ],
+  "no_fabrication": true
+}
