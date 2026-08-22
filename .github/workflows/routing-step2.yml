@@ -1,0 +1,136 @@
+name: Cross-border Routing STEP 2
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: STEP 2A - routing unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: pytest -q tests/test_step2_routing.py
+
+  route:
+    name: STEP 2B - route ${{ matrix.code }} ${{ matrix.name }}
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {code: '38201', name: '松山市'}
+          - {code: '38202', name: '今治市'}
+          - {code: '38203', name: '宇和島市'}
+          - {code: '38204', name: '八幡浜市'}
+          - {code: '38205', name: '新居浜市'}
+          - {code: '38206', name: '西条市'}
+          - {code: '38207', name: '大洲市'}
+          - {code: '38210', name: '伊予市'}
+          - {code: '38213', name: '四国中央市'}
+          - {code: '38214', name: '西予市'}
+          - {code: '38356', name: '上島町'}
+          - {code: '38401', name: '松前町'}
+          - {code: '38442', name: '伊方町'}
+          - {code: '38506', name: '愛南町'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Download N03 boundary source
+        run: >-
+          python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
+      - name: Build corrected walking network for this municipality
+        run: >-
+          python scripts/build_walking_network.py
+          --mesh-csv data/processed_population_mesh.csv
+          --boundary-zip data/raw/N03-20240101_38_GML.zip
+          --out-dir data/processed_network
+          --qa-dir data/qa/network-step2
+          --municipality '${{ matrix.name }}'
+          --buffer-m 3000
+          --timeout 180
+      - name: Route tsunami-exposed meshes to all reachable tsunami shelters
+        run: >-
+          python scripts/calculate_evacuation_routes_v2.py
+          --municipality-code '${{ matrix.code }}'
+          --mesh-csv data/processed_population_mesh.csv
+          --tsunami-exposure-csv data/tsunami_exposure.csv
+          --shelters-csv data/processed_shelters.csv
+          --boundary-zip data/raw/N03-20240101_38_GML.zip
+          --graphml 'data/processed_network/${{ matrix.code }}.graphml'
+          --out-csv 'data/step2/routes-${{ matrix.code }}.csv'
+          --out-qa 'data/qa/step2/routing-${{ matrix.code }}.json'
+          --out-exclusions 'data/qa/step2/shelter-exclusions-${{ matrix.code }}.csv'
+          --buffer-m 3000
+      - name: Stage municipality routing artifact
+        run: |
+          mkdir -p artifact
+          cp 'data/step2/routes-${{ matrix.code }}.csv' artifact/
+          cp 'data/qa/step2/routing-${{ matrix.code }}.json' artifact/
+          cp 'data/qa/step2/shelter-exclusions-${{ matrix.code }}.csv' artifact/
+          cp 'data/qa/network-step2/${{ matrix.code }}_network.json' artifact/
+      - name: Upload municipality routing artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: routing-step2-${{ matrix.code }}
+          path: artifact
+          retention-days: 7
+
+  aggregate:
+    name: STEP 2C - aggregate 1,090 routes and release gate
+    needs: route
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Download all municipality route artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: routing-step2-*
+          path: step2-artifacts
+          merge-multiple: true
+      - name: Aggregate and enforce STEP 2 release gate
+        run: >-
+          python scripts/aggregate_step2_routes.py
+          --input-dir step2-artifacts
+          --population-csv data/processed_population_mesh.csv
+          --tsunami-exposure-csv data/tsunami_exposure.csv
+          --expected-network-gap-mesh-ids '493253842,493262112'
+          --out-csv data/step2/mesh_routes_v2.csv
+          --out-qa data/qa/step2/step2_routing_summary.json
+      - name: Preserve municipality QA evidence
+        run: |
+          mkdir -p data/qa/step2/municipal
+          cp step2-artifacts/routing-*.json data/qa/step2/municipal/ || true
+          cp step2-artifacts/shelter-exclusions-*.csv data/qa/step2/municipal/ || true
+          cp step2-artifacts/*_network.json data/qa/step2/municipal/ || true
+      - name: Upload STEP 2 aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routing-step2-aggregate
+          path: |
+            data/step2/mesh_routes_v2.csv
+            data/qa/step2
+          retention-days: 14
