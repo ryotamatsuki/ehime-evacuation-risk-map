@@ -36,6 +36,7 @@ import pandas as pd
 from pyproj import Transformer
 from shapely import wkt
 from shapely.geometry import LineString, Point
+from shapely.ops import substring, transform as shapely_transform
 
 from build_walking_network import DEFAULT_BUFFER_M, buffered_aoi, load_boundaries
 from mesh500 import mesh_centroid
@@ -243,6 +244,72 @@ def node_path_coordinates(raw_graph: nx.MultiDiGraph, nodes: list[object]) -> li
     return coordinates
 
 
+def origin_edge_access_coordinates(
+    raw_graph: nx.MultiDiGraph,
+    origin: dict[str, object],
+    start_node: object,
+) -> list[list[float]]:
+    """Trace the selected edge from the virtual projection to its chosen endpoint.
+
+    STEP 2 prices an edge-based origin with an off-network centroid connector
+    plus the along-edge distance from the projection to ``start_node``.  The
+    stored route geometry must follow that same OSM edge rather than drawing a
+    straight projection-to-node chord, otherwise STEP 3 can materially
+    understate both route length and tsunami exposure on curved/long edges.
+    """
+    u = origin.get("origin_edge_u")
+    v = origin.get("origin_edge_v")
+    x = origin.get("origin_edge_projection_x_m")
+    y = origin.get("origin_edge_projection_y_m")
+    if u is None or v is None or x is None or y is None or start_node not in {u, v}:
+        return []
+
+    edge = best_raw_edge(raw_graph, u, v)
+    if edge is None:
+        return []
+    geometry = parse_linestring(edge["data"].get("geometry"))
+    if geometry is None:
+        geometry = LineString(
+            [
+                (float(raw_graph.nodes[u]["x"]), float(raw_graph.nodes[u]["y"])),
+                (float(raw_graph.nodes[v]["x"]), float(raw_graph.nodes[v]["y"])),
+            ]
+        )
+
+    to_metric = Transformer.from_crs("EPSG:4326", PROJECTED_CRS, always_xy=True)
+    inverse = Transformer.from_crs(PROJECTED_CRS, "EPSG:4326", always_xy=True)
+    metric = shapely_transform(to_metric.transform, geometry)
+    projection = Point(float(x), float(y))
+    node_data = raw_graph.nodes[start_node]
+    node_metric = Point(
+        *to_metric.transform(float(node_data["x"]), float(node_data["y"]))
+    )
+    projection_position = float(metric.project(projection))
+    node_position = float(metric.project(node_metric))
+    low = min(projection_position, node_position)
+    high = max(projection_position, node_position)
+    section = substring(metric, low, high)
+
+    if section.geom_type == "Point":
+        metric_coords = [(float(projection.x), float(projection.y))]
+    else:
+        metric_coords = [(float(px), float(py)) for px, py in section.coords]
+    if projection_position > node_position:
+        metric_coords.reverse()
+
+    projection_lon, projection_lat = inverse.transform(float(x), float(y))
+    start_point = [float(node_data["x"]), float(node_data["y"])]
+    coordinates = [
+        [float(lon), float(lat)] for lon, lat in (inverse.transform(px, py) for px, py in metric_coords)
+    ]
+    if not coordinates:
+        coordinates = [[float(projection_lon), float(projection_lat)]]
+    coordinates[0] = [float(projection_lon), float(projection_lat)]
+    if coordinates[-1] != start_point:
+        coordinates.append(start_point)
+    return coordinates
+
+
 def route_network_coordinates(
     raw_graph: nx.MultiDiGraph,
     origin: dict[str, object],
@@ -251,6 +318,18 @@ def route_network_coordinates(
     coordinates = node_path_coordinates(raw_graph, node_path)
     if origin.get("origin_method") not in {"walk_edge_intersects_mesh", "nearest_walk_edge_fallback"}:
         return coordinates
+    if not node_path:
+        return coordinates
+
+    access = origin_edge_access_coordinates(raw_graph, origin, node_path[0])
+    if access:
+        if coordinates and access[-1] == coordinates[0]:
+            return access + coordinates[1:]
+        return access + coordinates
+
+    # Defensive fallback: keep the old direct connector only if the source edge
+    # cannot be recovered. STEP 3's distance-consistency gate will flag any
+    # material mismatch produced by this fallback.
     x = origin.get("origin_edge_projection_x_m")
     y = origin.get("origin_edge_projection_y_m")
     if x is None or y is None:
@@ -513,6 +592,7 @@ def main() -> None:
         "connectors_accounted": True,
         "walking_speeds_mps": list(WALKING_SPEEDS_MPS),
         "network_geometry_excludes_offnetwork_connector": True,
+        "network_geometry_includes_edge_origin_along_osm_geometry": True,
         "allowed_statuses": sorted(ALLOWED_STATUSES),
     }
     args.out_qa.parent.mkdir(parents=True, exist_ok=True)

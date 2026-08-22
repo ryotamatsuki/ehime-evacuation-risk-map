@@ -1,5 +1,5 @@
-name: Cross-border Routing STEP 2
-# Validation base main: e715a70934e3f106e9d993d84c2dd07f6313d222
+name: Cross-border Routing STEP 2-3
+# STEP 2 baseline main: 6b277ee3cc8f96c3a519f9034f840b23404f947a
 
 on:
   pull_request:
@@ -21,6 +21,18 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements.txt
       - run: pytest -q tests/test_step2_routing.py
+
+  exposure-unit:
+    name: STEP 3A - route exposure unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: pytest -q tests/test_step3_route_exposure.py
 
   route:
     name: STEP 2B - route ${{ matrix.code }} ${{ matrix.name }}
@@ -150,4 +162,46 @@ jobs:
           path: |
             data/step2/mesh_routes_v2.csv
             data/qa/step2
+          retention-days: 14
+
+  exposure:
+    name: STEP 3B - recalculate 1,062 route exposures and release gate
+    needs: [aggregate, exposure-unit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Download verified STEP 2 aggregate
+        uses: actions/download-artifact@v4
+        with:
+          name: routing-step2-aggregate
+          path: step2-aggregate
+      - name: Recalculate route tsunami exposure and enforce STEP 3 gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          routes_csv="$(find step2-aggregate -type f -name mesh_routes_v2.csv -print -quit)"
+          test -n "$routes_csv"
+          python scripts/calculate_route_exposure_step3.py \
+            --routes-csv "$routes_csv" \
+            --shelters-csv data/processed_shelters.csv \
+            --cache .cache/tsunami-step3 \
+            --out-csv data/step3/mesh_routes_exposure.csv \
+            --out-qa data/qa/step3/step3_route_exposure_summary.json \
+            --sample-spacing-m 25 \
+            --expected-rows 1090 \
+            --expected-complete-routes 1062
+      - name: Upload STEP 3 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: route-exposure-step3
+          path: |
+            data/step3/mesh_routes_exposure.csv
+            data/qa/step3/step3_route_exposure_summary.json
           retention-days: 14
