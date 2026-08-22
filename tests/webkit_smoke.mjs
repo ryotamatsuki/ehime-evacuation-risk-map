@@ -11,7 +11,7 @@ const cases = [
 ]
 
 const report = {
-  test: 'STEP 6 production Playwright WebKit smoke',
+  test: 'Production Playwright WebKit smoke including STEP 7 policy simulation',
   base_url: baseUrl,
   native_safari_verified: false,
   note: 'Playwright WebKit is a Safari-compatibility automation proxy, not native Safari or physical iPhone verification.',
@@ -21,6 +21,11 @@ const report = {
 
 function ensure(condition, message) {
   if (!condition) throw new Error(message)
+}
+
+function facilityCount(text) {
+  const match = String(text).match(/([\d,]+)施設/)
+  return match ? Number(match[1].replaceAll(',', '')) : Number.NaN
 }
 
 async function runCase(browser, spec) {
@@ -60,8 +65,26 @@ async function runCase(browser, spec) {
     result.assertions.push('municipality interaction works')
 
     const simulationButton = page.getByRole('button', { name: /対策シミュレーション/ })
-    ensure(await simulationButton.isDisabled(), 'STEP 7 simulation unexpectedly enabled during STEP 6')
-    result.assertions.push('STEP 7 remains gated during STEP 6')
+    await simulationButton.waitFor({ state: 'visible' })
+    ensure(!(await simulationButton.isDisabled()), 'STEP 7 simulation launcher is disabled')
+    await simulationButton.click()
+    const dialog = page.locator('[aria-label="対策シミュレーション"]')
+    await dialog.waitFor({ state: 'visible' })
+    const baselineText = await page.getByTestId('simulation-baseline-overload').innerText({ timeout: 30000 })
+    const afterText = await page.getByTestId('simulation-after-overload').innerText({ timeout: 30000 })
+    ensure(facilityCount(baselineText) === 35, `simulation baseline is not 35: ${baselineText}`)
+    ensure(facilityCount(afterText) <= 35, `simulation increased overload count: ${afterText}`)
+    result.assertions.push('STEP 7 simulation opens with production baseline=35 and non-increasing overload')
+
+    const plus1000 = page.getByRole('button', { name: '+1,000人', exact: true })
+    await plus1000.click()
+    await page.waitForTimeout(100)
+    const after1000Text = await page.getByTestId('simulation-after-overload').innerText()
+    ensure(facilityCount(after1000Text) <= facilityCount(afterText), 'larger capacity augmentation increased overload count')
+    result.assertions.push('larger capacity augmentation is monotonic')
+
+    await page.getByRole('button', { name: 'シミュレーションを閉じる' }).click()
+    await dialog.waitFor({ state: 'hidden' })
 
     if (spec.name === 'iphone-webkit') {
       const toggle = page.locator('.mobile-panel-toggle')
