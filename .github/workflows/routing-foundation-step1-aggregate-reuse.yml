@@ -1,0 +1,58 @@
+name: Routing Foundation STEP 1 Aggregate Reuse
+
+on:
+  push:
+    branches:
+      - feature/analysis-correction-step1-routing-foundation
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  aggregate-existing-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Download N03 boundary source
+        run: >-
+          python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
+      - name: Reuse 14 successful municipal network artifacts from prior STEP 1 run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: routing-step1-network-*
+          path: data/processed_network
+          merge-multiple: true
+          run-id: 32553603544
+          github-token: ${{ github.token }}
+      - name: Run routing foundation spatial QA
+        run: >-
+          python scripts/routing_foundation_qa.py
+          --mesh-csv data/processed_population_mesh.csv
+          --shelters-csv data/processed_shelters.csv
+          --boundary-zip data/raw/N03-20240101_38_GML.zip
+          --network-dir data/processed_network
+          --out-dir data/qa/routing-step1
+          --buffer-m 3000
+          --border-distance-m 3000
+      - name: Report release gate without hiding QA evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('data/qa/routing-step1/routing_foundation_summary.json').read_text(encoding='utf-8'))
+          print(json.dumps(summary['release_gate'], ensure_ascii=False, indent=2))
+          PY
+      - name: Upload aggregate QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routing-foundation-step1-aggregate-reuse
+          path: data/qa/routing-step1
+          retention-days: 14
