@@ -20,8 +20,14 @@ def read_route_files(input_dir: pathlib.Path) -> pd.DataFrame:
     if not files:
         raise RuntimeError(f"no routes-*.csv found under {input_dir}")
     frames: list[pd.DataFrame] = []
+    route_dtypes = {
+        "mesh_id": str,
+        "municipality_code": str,
+        "selected_shelter_common_id": str,
+        "shelter_municipality_code": str,
+    }
     for path in files:
-        frame = pd.read_csv(path, encoding="utf-8-sig", dtype={"mesh_id": str, "municipality_code": str})
+        frame = pd.read_csv(path, encoding="utf-8-sig", dtype=route_dtypes)
         if not frame.empty:
             frame["_source_file"] = str(path)
             frames.append(frame)
