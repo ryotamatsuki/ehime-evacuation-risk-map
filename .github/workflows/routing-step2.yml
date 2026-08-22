@@ -1,13 +1,21 @@
-name: Cross-border Routing STEP 2-4
-# STEP 4 baseline main: 6d89cc68fd4e2ca435e70addf4677b8a7f98d596
+name: Analysis Core STEP 2-4 + Corrected Public Export
+# Corrected public export baseline main: 0e81b0b880a2492fbfd33b4c7691abdc43acba59
 
 on:
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: corrected-analysis-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   unit:
@@ -45,6 +53,18 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements.txt
       - run: pytest -q tests/test_step4_demand_capacity_risk.py
+
+  final-export-unit:
+    name: FINAL A - public export unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: pytest -q tests/test_final_export.py
 
   route:
     name: STEP 2B - route ${{ matrix.code }} ${{ matrix.name }}
@@ -261,3 +281,120 @@ jobs:
             data/step4/shelter_capacity_v4.csv
             data/qa/step4/step4_summary.json
           retention-days: 14
+
+  final-export:
+    name: FINAL B - corrected public export and frontend release gate
+    needs: [step4, final-export-unit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: python -m pip install -r requirements.txt
+      - name: Download verified same-run STEP 4 analysis
+        uses: actions/download-artifact@v4
+        with:
+          name: analysis-step4
+          path: step4-artifact
+      - name: Export corrected target-only public assets and enforce final data gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mesh_csv="$(find step4-artifact -type f -name mesh_analysis_v4.csv -print -quit)"
+          shelter_csv="$(find step4-artifact -type f -name shelter_capacity_v4.csv -print -quit)"
+          step4_qa="$(find step4-artifact -type f -name step4_summary.json -print -quit)"
+          test -n "$mesh_csv"
+          test -n "$shelter_csv"
+          test -n "$step4_qa"
+          python scripts/export_corrected_public_data.py \
+            --mesh-analysis-csv "$mesh_csv" \
+            --shelter-capacity-csv "$shelter_csv" \
+            --step4-qa "$step4_qa" \
+            --shelter-source-csv data/processed_shelters.csv \
+            --out-root public/data \
+            --out-qa data/qa/final-export/final_export_summary.json \
+            --expected-rows 1090 \
+            --expected-complete-routes 1062 \
+            --expected-cross-border 13 \
+            --analysis-source-sha "$GITHUB_SHA" \
+            --workflow-run-id "$GITHUB_RUN_ID"
+      - name: Verify exported public contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('public/data')
+          analysis = json.loads((root/'metadata/analysis.json').read_text(encoding='utf-8'))
+          assert analysis['target_meshes'] == 1090
+          assert analysis['complete_routes'] == 1062
+          assert analysis['route_unavailable'] == 28
+          assert analysis['cross_border_routes'] == 13
+          risk_index = json.loads((root/'risk/index.json').read_text(encoding='utf-8'))
+          route_index = json.loads((root/'routes/index.json').read_text(encoding='utf-8'))
+          assert len(risk_index) == 14 and sum(x['feature_count'] for x in risk_index) == 1090
+          assert len(route_index) == 14 and sum(x['feature_count'] for x in route_index) == 1090
+          qa = json.loads(Path('data/qa/final-export/final_export_summary.json').read_text(encoding='utf-8'))
+          assert qa['release_gate']['pass'] is True
+          correction = qa['cross_border_metadata_correction']
+          assert correction['source_cross_border_true'] == 10
+          assert correction['resolved_cross_border_true'] == 13
+          assert correction['additional_cross_border_detected'] == 3
+          assert correction['resolved_missing_shelter_municipality_rows'] == 26
+          PY
+      - name: Build corrected Vite site
+        run: |
+          npm ci
+          npm run build
+      - name: Verify built Pages artifact contains corrected data
+        run: |
+          test -s dist/data/metadata/analysis.json
+          test -s dist/data/metadata/corrected_manifest.json
+          test -s dist/data/risk/index.json
+          test -s dist/data/routes/index.json
+          test -s dist/data/shelters/capacity_pressure.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          analysis = json.loads(Path('dist/data/metadata/analysis.json').read_text(encoding='utf-8'))
+          assert analysis['analysis_version'] == 'analysis-core-v4-corrected-public'
+          assert analysis['target_meshes'] == 1090
+          assert analysis['cross_border_routes'] == 13
+          PY
+      - name: Upload corrected final export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corrected-final-export
+          path: |
+            public/data/risk
+            public/data/routes
+            public/data/shelters/capacity_pressure.json
+            public/data/metadata/analysis.json
+            public/data/metadata/corrected_manifest.json
+            data/qa/final-export/final_export_summary.json
+          retention-days: 14
+      - name: Upload verified GitHub Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: FINAL C - deploy corrected GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: final-export
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy corrected site to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
