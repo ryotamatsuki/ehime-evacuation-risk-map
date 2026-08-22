@@ -277,7 +277,8 @@
 @media (max-width: 780px) {
   .simulation-launcher {
     right: 12px;
-    bottom: 14px;
+    bottom: 68px;
+    z-index: 18;
     padding: 10px 13px;
     font-size: 12px;
   }
