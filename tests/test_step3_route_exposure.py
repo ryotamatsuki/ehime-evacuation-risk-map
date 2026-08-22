@@ -13,6 +13,7 @@ from shapely.ops import transform as shapely_transform
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 
+from aggregate_step2_routes import read_route_files  # noqa: E402
 from build_tsunami_exposure import PALETTE  # noqa: E402
 from calculate_evacuation_routes_v2 import route_network_coordinates  # noqa: E402
 from calculate_route_exposure import (  # noqa: E402
@@ -71,6 +72,23 @@ def test_route_loader_preserves_leading_zero_shelter_id(tmp_path):
     ).to_csv(path, index=False, encoding="utf-8-sig")
     loaded = load_routes(path)
     assert loaded.loc[0, "selected_shelter_common_id"] == "01201"
+
+
+def test_step2_aggregate_preserves_leading_zero_shelter_id(tmp_path):
+    path = tmp_path / "routes-38210.csv"
+    pd.DataFrame(
+        [
+            {
+                "mesh_id": "503255162",
+                "municipality_code": "38210",
+                "route_status": "complete",
+                "selected_shelter_common_id": "01201",
+                "shelter_municipality_code": "38210",
+            }
+        ]
+    ).to_csv(path, index=False, encoding="utf-8-sig")
+    aggregated = read_route_files(tmp_path)
+    assert aggregated.loc[0, "selected_shelter_common_id"] == "01201"
 
 
 def test_edge_origin_geometry_follows_curved_osm_edge():
