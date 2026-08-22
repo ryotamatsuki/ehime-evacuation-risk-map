@@ -40,13 +40,52 @@ jobs:
           --out-dir data/qa/routing-step1
           --buffer-m 3000
           --border-distance-m 3000
-      - name: Report release gate without hiding QA evidence
+      - name: Select auditable mesh origins and target-specific gate
+        run: >-
+          python scripts/select_mesh_origins.py
+          --mesh-csv data/processed_population_mesh.csv
+          --tsunami-exposure-csv data/tsunami_exposure.csv
+          --network-dir data/processed_network
+          --out-csv data/qa/routing-step1/mesh_origins.csv
+          --out-summary data/qa/routing-step1/mesh_origin_selection_summary.json
+          --out-outliers data/qa/routing-step1/mesh_origin_outliers.csv
+      - name: Enforce STEP 1 release gate
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          summary = json.loads(Path('data/qa/routing-step1/routing_foundation_summary.json').read_text(encoding='utf-8'))
-          print(json.dumps(summary['release_gate'], ensure_ascii=False, indent=2))
+          foundation = json.loads(Path('data/qa/routing-step1/routing_foundation_summary.json').read_text(encoding='utf-8'))
+          origins = json.loads(Path('data/qa/routing-step1/mesh_origin_selection_summary.json').read_text(encoding='utf-8'))
+          print('foundation gate:', json.dumps(foundation['release_gate'], ensure_ascii=False, indent=2))
+          print('origin gate:', json.dumps(origins['release_gate'], ensure_ascii=False, indent=2))
+          if not foundation['release_gate']['network_aoi_is_boundary_based']:
+              raise SystemExit('STEP 1 blocked: network AOI is not boundary based')
+          if not foundation['release_gate']['all_5821_meshes_snap_checked']:
+              raise SystemExit('STEP 1 blocked: not all meshes were checked')
+          if not origins['release_gate']['all_meshes_have_representative_origin']:
+              raise SystemExit('STEP 1 blocked: representative origin missing')
+          if origins['release_gate']['blocking']:
+              raise SystemExit(f"STEP 1 blocked: tsunami-target critical origins={origins['release_gate']['analysis_target_critical_count']}")
+          print('STEP 1 release gate: PASS')
+          PY
+      - name: Record STEP 2 shelter snap policy
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          path = Path('data/qa/routing-step1/shelter_snap_all.csv')
+          df = pd.read_csv(path, encoding='utf-8-sig')
+          critical = df[df['snap_status'].eq('critical')].copy()
+          payload = {
+            'max_candidate_shelter_connector_m': 500,
+            'critical_context_records': int(len(critical)),
+            'critical_unique_shelters': int(critical['common_id'].nunique()) if len(critical) else 0,
+            'policy': 'STEP 2 excludes a shelter candidate in a network context when its OSM connector exceeds 500 m; exclusions are reported, never silently imputed.',
+            'critical_records': critical[['context_municipality','common_id','name','shelter_snap_distance_m']].to_dict('records'),
+          }
+          Path('data/qa/routing-step1/shelter_candidate_policy.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(json.dumps(payload, ensure_ascii=False, indent=2))
           PY
       - name: Upload aggregate QA
         if: always()
