@@ -1,0 +1,81 @@
+name: Routing Foundation STEP 1
+
+on:
+  push:
+    branches:
+      - feature/analysis-correction-step1-routing-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  routing-foundation-live-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Unit tests
+        run: pytest -q tests/test_routing_foundation.py
+
+      - name: Download N03 boundary source
+        run: >-
+          python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
+
+      - name: Rebuild 14 municipal pedestrian networks with corrected AOIs
+        run: >-
+          python scripts/build_walking_network.py
+          --mesh-csv data/processed_population_mesh.csv
+          --boundary-zip data/raw/N03-20240101_38_GML.zip
+          --out-dir data/processed_network
+          --qa-dir data/qa/network-step1
+          --buffer-m 3000
+          --timeout 180
+
+      - name: Run routing foundation spatial QA
+        run: >-
+          python scripts/routing_foundation_qa.py
+          --mesh-csv data/processed_population_mesh.csv
+          --shelters-csv data/processed_shelters.csv
+          --boundary-zip data/raw/N03-20240101_38_GML.zip
+          --network-dir data/processed_network
+          --out-dir data/qa/routing-step1
+          --buffer-m 3000
+          --border-distance-m 3000
+
+      - name: Enforce STEP 1 release gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('data/qa/routing-step1/routing_foundation_summary.json').read_text(encoding='utf-8'))
+          gate = summary['release_gate']
+          if not gate['network_aoi_is_boundary_based']:
+              raise SystemExit('release gate failed: network AOI metadata is not boundary based')
+          if not gate['all_5821_meshes_snap_checked']:
+              raise SystemExit('release gate failed: not all population meshes were snap checked')
+          if gate['blocking']:
+              raise SystemExit(f"release gate blocked: critical origin snaps={gate['critical_origin_snap_count']}")
+          print('STEP 1 release gate: PASS')
+          PY
+
+      - name: Upload STEP 1 QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routing-foundation-step1-qa
+          path: |
+            data/qa/network-step1
+            data/qa/routing-step1
+          retention-days: 14
