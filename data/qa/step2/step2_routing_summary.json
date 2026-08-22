@@ -1,8 +1,8 @@
 {
   "step": "STEP 2 - Cross-border mesh-to-shelter routing",
   "validation_main_sha": "e715a70934e3f106e9d993d84c2dd07f6313d222",
-  "workflow_run_id": 32558665220,
-  "aggregate_artifact_id": 9472305747,
+  "verified_workflow_run_id": 32558665220,
+  "verified_aggregate_artifact_id": 9472305747,
   "expected_target_count": 1090,
   "source_target_count": 1090,
   "route_row_count": 1090,
@@ -31,14 +31,8 @@
     "p95": 4298.347792400045,
     "max": 9717.882138353152
   },
-  "expected_network_coverage_gap_ids": [
-    "493253842",
-    "493262112"
-  ],
-  "actual_network_coverage_gap_ids": [
-    "493253842",
-    "493262112"
-  ],
+  "expected_network_coverage_gap_ids": ["493253842", "493262112"],
+  "actual_network_coverage_gap_ids": ["493253842", "493262112"],
   "missing_target_mesh_count": 0,
   "extra_non_target_mesh_count": 0,
   "municipality_failure_counts": {
@@ -49,12 +43,10 @@
     "西条市_no_network_path": 1,
     "上島町_no_network_path": 1
   },
-  "release_gate": {
-    "pass": true,
-    "failures": []
-  },
+  "release_gate": {"pass": true, "failures": []},
   "notes": [
     "伊予市の初回OSM network取得は一時的に失敗したが、同一jobの再実行でnetwork構築・routingとも成功した。",
+    "STEP 2 workflowは外部OSM取得の一時失敗に備え、最大3回の再試行とGraphML/QA complete確認を行う。",
     "26件のno_network_pathは対象母数から除外せず明示的なroute_statusとして保持する。",
     "2件のnetwork_coverage_gapはSTEP 1で確定した既知meshと完全一致する。",
     "フルroute CSVはGitHub Actions artifactに保持し、STEP 3で津波経路曝露を付与した公開用成果物へ更新する。"
