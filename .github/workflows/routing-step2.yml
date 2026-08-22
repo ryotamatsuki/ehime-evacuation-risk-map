@@ -187,8 +187,9 @@ jobs:
           set -euo pipefail
           routes_csv="$(find step2-aggregate -type f -name mesh_routes_v2.csv -print -quit)"
           test -n "$routes_csv"
-          python scripts/calculate_route_exposure.py \
+          python scripts/calculate_route_exposure_step3.py \
             --routes-csv "$routes_csv" \
+            --shelters-csv data/processed_shelters.csv \
             --cache .cache/tsunami-step3 \
             --out-csv data/step3/mesh_routes_exposure.csv \
             --out-qa data/qa/step3/step3_route_exposure_summary.json \
