@@ -2,12 +2,12 @@
 """Select auditable routing origins for 500m population meshes.
 
 A geometric mesh centroid is a useful reference point but can fall offshore or
-far from an OSM walkable edge.  For routing, prefer the walk-network node inside
-the 500m mesh that is closest to the centroid.  If the mesh contains no network
+far from an OSM walkable edge. For routing, prefer the walk-network node inside
+the 500m mesh that is closest to the centroid. If the mesh contains no network
 node, fall back to the nearest network node and keep the connector distance and
 status explicitly.
 
-The off-network connector is *not* silently discarded.  STEP 2 must add
+The off-network connector is *not* silently discarded. STEP 2 must add
 ``origin_connector_distance_m`` to the network shortest-path distance when
 reporting walking distance/time.
 """
@@ -41,8 +41,9 @@ def build_node_index(graph):
 
 
 def choose_origin(
-    graph,
     mesh_id: str,
+    raw_node: object,
+    raw_distance: float,
     node_ids: list[object],
     node_points: list[Point],
     tree: STRtree,
@@ -51,11 +52,6 @@ def choose_origin(
     lon, lat = mesh_centroid(mesh_id)
     centroid_metric = Point(*to_metric.transform(lon, lat))
     polygon_metric = transform(to_metric.transform, Polygon(mesh_polygon(mesh_id)))
-
-    raw_node, raw_distance = ox.distance.nearest_nodes(
-        graph, X=float(lon), Y=float(lat), return_dist=True
-    )
-    raw_distance = float(raw_distance)
 
     inside_indices = tree.query(polygon_metric, predicate="intersects")
     if len(inside_indices):
@@ -69,7 +65,7 @@ def choose_origin(
         node_within_mesh = True
     else:
         node = raw_node
-        connector_distance = raw_distance
+        connector_distance = float(raw_distance)
         method = "nearest_walk_node_fallback"
         node_within_mesh = False
 
@@ -78,7 +74,7 @@ def choose_origin(
         "centroid_lon": float(lon),
         "centroid_lat": float(lat),
         "raw_centroid_nearest_node": raw_node,
-        "raw_centroid_snap_distance_m": raw_distance,
+        "raw_centroid_snap_distance_m": float(raw_distance),
         "representative_origin_node": node,
         "origin_connector_distance_m": connector_distance,
         "origin_method": method,
@@ -120,10 +116,23 @@ def main() -> None:
             raise RuntimeError(f"GraphML missing: {graph_path}")
         graph = as_walk_graph(ox.io.load_graphml(filepath=graph_path))
         node_ids, node_points, tree, to_metric = build_node_index(graph)
-        for mesh_row in part.itertuples(index=False):
+
+        mesh_ids = part["mesh_id"].astype(str).tolist()
+        centroids = [mesh_centroid(mesh_id) for mesh_id in mesh_ids]
+        raw_nodes, raw_distances = ox.distance.nearest_nodes(
+            graph,
+            X=[point[0] for point in centroids],
+            Y=[point[1] for point in centroids],
+            return_dist=True,
+        )
+        raw_nodes = list(raw_nodes) if hasattr(raw_nodes, "__iter__") and not isinstance(raw_nodes, (str, bytes)) else [raw_nodes]
+        raw_distances = list(raw_distances) if hasattr(raw_distances, "__iter__") and not isinstance(raw_distances, (str, bytes)) else [raw_distances]
+
+        for mesh_row, raw_node, raw_distance in zip(part.itertuples(index=False), raw_nodes, raw_distances):
             selected = choose_origin(
-                graph,
                 str(mesh_row.mesh_id),
+                raw_node,
+                float(raw_distance),
                 node_ids,
                 node_points,
                 tree,
