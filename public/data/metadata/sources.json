@@ -1,0 +1,45 @@
+{
+  "project": "ehime-evacuation-risk-map",
+  "analysis_date": "2026-08-22",
+  "sources": [
+    {
+      "name": "愛媛県 指定緊急避難場所一覧",
+      "date": "2026-07-27",
+      "updated": "2026-07-29",
+      "role": "shelter attribute authority",
+      "license": "CC BY",
+      "url": "https://www.pref.ehime.jp/opendata-catalog/dataset/pref-2.html"
+    },
+    {
+      "name": "国土地理院 指定緊急避難場所データ",
+      "date": "downloaded 2026-08-22",
+      "role": "shelter coordinates",
+      "url": "https://hinanmap.gsi.go.jp/hinanjocp/hinanbasho/koukaidate.html"
+    },
+    {
+      "name": "e-Stat 令和2年国勢調査 地域メッシュ統計 500m JGD2011 人口及び世帯",
+      "role": "total population",
+      "table": "T001141",
+      "url": "https://www.e-stat.go.jp/gis/statmap-search"
+    },
+    {
+      "name": "e-Stat 令和2年国勢調査 地域メッシュ統計 500m JGD2011 5歳階級別人口",
+      "role": "age population",
+      "table": "T001192",
+      "url": "https://www.e-stat.go.jp/gis/statmap-search"
+    },
+    {
+      "name": "国土数値情報 N03 行政区域",
+      "date": "2024-01-01",
+      "role": "municipality spatial join",
+      "url": "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03.html"
+    },
+    {
+      "name": "ハザードマップポータルサイト 津波浸水想定 愛媛県タイル",
+      "role": "tsunami raster; direct web display and sampled offline analysis",
+      "url": "https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_pref_data/38/{z}/{x}/{y}.png",
+      "note": "愛媛県の最新法定津波浸水想定は2025年9月2日に変更。配信タイルの愛媛県個別反映日は公開ページ上で明示されていない。"
+    }
+  ],
+  "derived_data_policy": "Only processed analysis data is published; raw source archives and the 2026 Ehime earthquake damage-assumption 271MB ZIP are not published."
+}
