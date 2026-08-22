@@ -137,6 +137,7 @@ function App() {
   const mapElement = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [mapReady, setMapReady] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [populationFeatures, setPopulationFeatures] = useState<GeoFeature[]>([])
@@ -222,28 +223,45 @@ function App() {
 
   useEffect(() => {
     if (!mapElement.current) return
-    const map = new maplibregl.Map({
-      container: mapElement.current,
-      style: {
-        version: 8,
-        sources: {},
-        layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#dce8ee' } }],
-      },
-      center: [132.8, 33.8],
-      zoom: 8.4,
-      minZoom: 6,
-      maxZoom: 18,
-      renderWorldCopies: false,
-      attributionControl: false,
-    })
-    mapRef.current = map
-    map.on('load', () => setMapReady(true))
-    map.on('error', (event) => {
-      if (event.error?.message?.includes('04_tsunami')) return
-      console.warn('MapLibre error', event.error)
-    })
+    const webglAvailable = (() => {
+      try {
+        const canvas = document.createElement('canvas')
+        return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+      } catch {
+        return false
+      }
+    })()
+    if (!webglAvailable) {
+      setMapError('このブラウザではWebGLが無効のため、インタラクティブ地図を表示できません。データ詳細とランキングは利用できます。')
+      return
+    }
+    let map: maplibregl.Map | null = null
+    try {
+      map = new maplibregl.Map({
+        container: mapElement.current,
+        style: {
+          version: 8,
+          sources: {},
+          layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#dce8ee' } }],
+        },
+        center: [132.8, 33.8],
+        zoom: 8.4,
+        minZoom: 6,
+        maxZoom: 18,
+        renderWorldCopies: false,
+        attributionControl: false,
+      })
+      mapRef.current = map
+      map.on('load', () => setMapReady(true))
+      map.on('error', (event) => {
+        if (event.error?.message?.includes('04_tsunami')) return
+        console.warn('MapLibre error', event.error)
+      })
+    } catch {
+      setMapError('地図エンジンを初期化できませんでした。WebGLを有効にしたブラウザで再度お試しください。')
+    }
     return () => {
-      map.remove()
+      map?.remove()
       mapRef.current = null
       setMapReady(false)
     }
@@ -333,7 +351,7 @@ function App() {
 
       <main className="workspace">
         <section className="map-panel" aria-label="避難困難度マップ">
-          <div ref={mapElement} className="map-canvas" />
+          {mapError ? <div className="map-fallback"><div className="map-fallback-card"><div className="section-kicker">MAP ENGINE FALLBACK</div><h2>地図表示はWebGL対応ブラウザでご利用ください</h2><p>{mapError}</p><div className="fallback-stat"><strong>{formatNumber(summary.meshCount)}</strong><span>対象500mメッシュ</span><strong>{formatNumber(summary.highRiskMeshCount)}</strong><span>高リスクメッシュ</span></div><p className="micro-note">右側の条件・ランキング・メッシュ詳細はこの環境でも利用できます。</p></div></div> : <div ref={mapElement} className="map-canvas" />}
           <div className="map-overlay top-left">
             <label className="map-select-label" htmlFor="municipality">対象市町</label>
             <select id="municipality" value={municipality} onChange={(event) => setMunicipality(event.target.value)}>
