@@ -69,7 +69,7 @@ const METRICS: Record<MetricId, { label: string; unit: string; note: string }> =
   aging65: { label: '65歳以上人口割合', unit: '%', note: '2020年国勢調査500mメッシュ。年齢データ欠損はグレー表示' },
   route: { label: '経路津波曝露', unit: '%', note: 'STEP 3の分類済み道路ネットワーク経路における津波浸水割合' },
   score: { label: '政策優先度', unit: '点', note: 'STEP 4で確定した公開済み5要素スコアを直接表示。欠損要素の再配分・ブラウザ再計算は行いません' },
-  capacity: { label: '収容負荷', unit: '%', note: 'STEP 4の避難場所単位集約需要 ÷ 収容人数。容量不明はグレー表示' },
+  capacity: { label: '収容負荷', unit: '%', note: 'STEP 4の面積按分需要を避難場所単位に集約し、公表収容人数で除した収容負荷。収容人数未公表は不明のまま表示' },
 }
 
 const SCORE_STATUS_LABELS: Record<string, string> = {
@@ -326,7 +326,11 @@ function AppCorrected() {
   }), [populationFeatures, riskByMesh])
 
   const summary = useMemo(() => {
-    const tsunamiProxyPopulation = filteredRows.reduce((sum, row) => sum + (toNumber(row, 'mesh_evacuation_demand_area_weighted') ?? ((toNumber(row, 'total_population') ?? 0) * (toNumber(row, 'tsunami_inundation_ratio') ?? 0))), 0)
+    const demandValues = filteredRows.map((row) => toNumber(row, 'mesh_evacuation_demand_area_weighted'))
+    const completeDemandValues = demandValues.filter((value): value is number => value !== null)
+    const tsunamiProxyPopulation = filteredRows.length > 0 && completeDemandValues.length === filteredRows.length
+      ? completeDemandValues.reduce((sum, value) => sum + value, 0)
+      : null
     const standardOver20 = filteredRows.filter((row) => (walkingMinutes(row, '1.0') ?? -1) > 20)
     const elderlyOver20 = filteredRows.filter((row) => (walkingMinutes(row, '0.62') ?? -1) > 20)
     const routeUnavailable = filteredRows.filter((row) => toText(row, 'route_status') !== 'complete')
@@ -534,11 +538,11 @@ function AppCorrected() {
       </nav>
 
       <section className="kpi-strip" aria-label="主要指標">
-        <KpiCard icon="people" tone="blue" label="津波曝露人口（代理）" value={`${formatNumber(summary.tsunamiProxyPopulation)}人`} sub="人口×浸水割合。避難者予測ではありません" />
+        <KpiCard icon="people" tone="blue" label="津波曝露人口（代理）" value={summary.tsunamiProxyPopulation === null ? '—' : `${formatNumber(summary.tsunamiProxyPopulation)}人`} sub="人口×津波浸水面積割合（STEP 4面積按分需要）" />
         <KpiCard icon="clock" tone="orange" label="20分超避難人口" value={`${formatNumber(summary.standardOver20Population)}人`} sub="標準歩行 1.0m/s" />
         <KpiCard icon="elderly" tone="red" label="高齢者想定20分超人口" value={`${formatNumber(summary.elderlyOver20Population)}人`} sub="観測参考 0.62m/s" />
         <KpiCard icon="warning" tone="red" label="経路未成立人口" value={`${formatNumber(summary.routeUnavailablePopulation)}人`} sub={`${formatNumber(summary.routeUnavailableMeshes)}メッシュ / no path・coverage gap`} />
-        <KpiCard icon="shelter" tone="purple" label="容量超過避難場所" value={capacityTrusted ? `${formatNumber(summary.overloadedShelters)}施設` : '—'} sub="面積按分需要 / 収容人数 > 100%" muted={!capacityTrusted} />
+        <KpiCard icon="shelter" tone="purple" label="容量超過避難場所" value={capacityTrusted ? `${formatNumber(summary.overloadedShelters)}施設` : '—'} sub="面積按分需要の避難場所別集約 / 公表収容人数 > 100%" muted={!capacityTrusted} />
       </section>
 
       <main className="dashboard-grid">
@@ -625,7 +629,7 @@ function AppCorrected() {
                   <button><span>＋</span>避難場所増強</button>
                   <button><span>⇄</span>広域避難計画</button>
                   <button><span>△</span>経路改善</button>
-                  <p>容量圧力は診断値です。現段階では容量超過分を別避難場所へ自動再配分しません。</p>
+                  <p>収容負荷はSTEP 4の面積按分需要を避難場所単位に集約し、公表収容人数で除した診断値です。収容人数未公表は不明のままとし、超過分の自動再配分は行いません。</p>
                 </div>
               </section>
             </> : <div className="empty-diagnosis"><div className="empty-icon">＋</div><h3>メッシュを選択してください</h3><p>地図上の色付きメッシュ、または下の要対策ランキングをクリックすると、避難時間・経路・津波曝露を診断します。</p></div>}
@@ -657,7 +661,7 @@ function AppCorrected() {
         </section>
       </main>
 
-      <footer className="disclaimer"><span>本サイトは公開データを用いた政策分析・可視化PoCです。実際の避難行動や避難経路の安全を保証するものではありません。避難需要は人口×浸水割合の代理値であり、避難者予測ではありません。</span><span>人口：2020年国勢調査 / 津波：ハザードマップポータル / 避難場所：愛媛県・国土地理院 / 道路：OpenStreetMap / 解析：Analysis Core v4 corrected</span></footer>
+      <footer className="disclaimer"><span>本サイトは公開データを用いた政策分析・可視化PoCです。実際の避難行動や避難経路の安全を保証するものではありません。メッシュ避難需要は人口×津波浸水面積割合の代理値です。収容負荷はその面積按分需要を避難場所単位に集約して公表収容人数で除した値で、収容人数未公表は不明のまま扱います。実避難者数の予測ではありません。</span><span>人口：2020年国勢調査 / 津波：ハザードマップポータル / 避難場所：愛媛県・国土地理院 / 道路：OpenStreetMap / 解析：Analysis Core v4 corrected</span></footer>
     </div>
   )
 }
