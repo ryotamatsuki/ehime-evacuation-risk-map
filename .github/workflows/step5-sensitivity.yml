@@ -1,0 +1,131 @@
+name: STEP 5 Sensitivity Robustness Final QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/analyze_step5_sensitivity.py'
+      - 'tests/test_step5_sensitivity.py'
+      - 'docs/step5-sensitivity-methodology.md'
+      - '.github/workflows/step5-sensitivity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/analyze_step5_sensitivity.py'
+      - 'tests/test_step5_sensitivity.py'
+      - 'docs/step5-sensitivity-methodology.md'
+      - '.github/workflows/step5-sensitivity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sensitivity-robustness-final-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: python -m pip install -r requirements.txt
+
+      - name: Run STEP 5 unit tests
+        run: pytest -q tests/test_step5_sensitivity.py
+
+      - name: Resolve latest successful main production run
+        id: production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/routing-step2.yml/runs?branch=main&status=success&event=push&per_page=1"
+          response="$(curl --fail --silent --show-error --location \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$api")"
+          run_id="$(jq -r '.workflow_runs[0].id // empty' <<<"$response")"
+          head_sha="$(jq -r '.workflow_runs[0].head_sha // empty' <<<"$response")"
+          test -n "$run_id"
+          test -n "$head_sha"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "Latest successful production run: $run_id ($head_sha)"
+
+      - name: Download corrected production export
+        uses: actions/download-artifact@v4
+        with:
+          name: corrected-final-export
+          path: .
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.production.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify production v4 provenance
+        env:
+          EXPECTED_SHA: ${{ steps.production.outputs.head_sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          metadata = json.loads(Path('public/data/metadata/analysis.json').read_text(encoding='utf-8'))
+          assert metadata['analysis_version'] == 'analysis-core-v4-corrected-public', metadata
+          assert metadata['analysis_source_sha'] == os.environ['EXPECTED_SHA'], metadata
+          assert metadata['target_meshes'] == 1090, metadata
+          assert metadata['complete_routes'] == 1062, metadata
+          assert metadata['route_unavailable'] == 28, metadata
+          assert metadata['cross_border_routes'] == 13, metadata
+          print(f"STEP 5 input provenance PASS: {metadata['analysis_source_sha']}")
+          PY
+
+      - name: Run STEP 5 production sensitivity and final QA
+        run: |
+          python scripts/analyze_step5_sensitivity.py \
+            --public-data-root public/data \
+            --out-mesh-csv data/step5/mesh_robustness.csv \
+            --out-summary data/step5/sensitivity_summary.json \
+            --out-qa data/qa/step5/step5_summary.json \
+            --expected-rows 1090
+
+      - name: Verify STEP 5 production contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          qa = json.loads(Path('data/qa/step5/step5_summary.json').read_text(encoding='utf-8'))
+          assert qa['release_gate']['pass'] is True, qa
+          assert qa['baseline_contract']['target_rows'] == 1090, qa
+          assert qa['baseline_contract']['complete_scored_rows'] == 813, qa
+          assert qa['baseline_contract']['capacity_missing_complete_core_rows'] == 128, qa
+          assert qa['baseline_contract']['core_data_incomplete_rows'] == 121, qa
+          assert qa['baseline_contract']['route_unavailable_rows'] == 28, qa
+          assert qa['weight_sensitivity']['scenario_count'] == 12, qa
+          assert qa['demand_sensitivity']['over_capacity_area_weighted_shelters'] == 35, qa
+          assert qa['demand_sensitivity']['over_capacity_full_mesh_shelters'] == 72, qa
+          print(
+              "STEP 5 production PASS:",
+              qa['weight_sensitivity']['robust_top10pct_all_scenarios_n'],
+              "robust top-decile meshes;",
+              qa['weight_sensitivity']['robust_top50_all_scenarios_n'],
+              "robust top-50 meshes"
+          )
+          PY
+
+      - name: Upload STEP 5 analytical evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-step5-sensitivity
+          path: |
+            data/step5/mesh_robustness.csv
+            data/step5/sensitivity_summary.json
+            data/qa/step5/step5_summary.json
+          retention-days: 30
