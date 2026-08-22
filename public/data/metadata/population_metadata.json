@@ -1,0 +1,28 @@
+{
+  "source": "e-Stat 令和2年国勢調査 地域メッシュ統計 500m JGD2011",
+  "population_table": "T001141",
+  "age_table": "T001192",
+  "boundary_source": "国土数値情報 N03-20240101_38_GML",
+  "feature_count": 5821,
+  "municipality_counts": {
+    "上島町": 58,
+    "今治市": 748,
+    "伊予市": 307,
+    "伊方町": 115,
+    "八幡浜市": 220,
+    "四国中央市": 426,
+    "大洲市": 746,
+    "宇和島市": 562,
+    "愛南町": 307,
+    "新居浜市": 247,
+    "松前町": 66,
+    "松山市": 792,
+    "西予市": 657,
+    "西条市": 570
+  },
+  "missing_total_population": 0,
+  "missing_65plus": 1509,
+  "missing_75plus": 1509,
+  "age_inconsistent_with_total": 183,
+  "null_policy": "missing and confidentiality values remain null; never converted to zero"
+}
