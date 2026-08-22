@@ -4,9 +4,9 @@ Validation date: 2026-08-22
 
 Validation base main SHA: `e715a70934e3f106e9d993d84c2dd07f6313d222`
 
-GitHub Actions run: `32558665220`
+Verified GitHub Actions run: `32558665220`
 
-Aggregate evidence artifact: `9472305747`
+Verified aggregate evidence artifact: `9472305747`
 
 ## Scope
 
@@ -93,11 +93,11 @@ Walking-time scenarios are generated at:
 
 These statuses are retained for STEP 3/4 and must not be converted to zero-risk records.
 
-## Execution note
+## OSM acquisition resilience
 
 The first 伊予市 OSM network acquisition failed transiently. The STEP 2 aggregate gate stopped as designed because one municipality artifact was missing. Re-running only the failed 伊予市 job succeeded with the same code and AOI, after which all 14 municipality artifacts were present and the 1,090-mesh aggregate gate passed.
 
-This is treated as an external OSM/Overpass acquisition failure, not as a routing-methodology exception.
+The STEP 2 workflow now retries a failed municipality network acquisition up to three times and verifies both the GraphML file and municipality QA `status=complete` before routing starts. A failed network build therefore cannot fall through to the routing step as a misleading missing-file failure.
 
 ## Outputs
 
