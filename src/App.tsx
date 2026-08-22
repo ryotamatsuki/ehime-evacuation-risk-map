@@ -498,7 +498,8 @@ function App() {
             <div className="control-title">レイヤー</div>
             <label><input type="checkbox" checked={showTsunami} onChange={(event) => setShowTsunami(event.target.checked)} /><span className="layer-symbol tsunami" />津波浸水想定</label>
             <label><input type="checkbox" checked={showShelters} onChange={(event) => setShowShelters(event.target.checked)} /><span className="layer-symbol shelter" />避難場所</label>
-            <label><input type="checkbox" checked={showRoute} onChange={(event) => setShowRoute(event.target.checked)} /><span className="layer-symbol route" />避難経路</label>
+            <label style={{ opacity: selectedRow ? 1 : 0.56 }}><input type="checkbox" checked={showRoute} disabled={!selectedRow} onChange={(event) => setShowRoute(event.target.checked)} /><span className="layer-symbol route" />選択メッシュの避難経路</label>
+            {!selectedRow && <div style={{ margin: '-2px 0 8px 24px', maxWidth: 150, color: '#64748b', fontSize: 10, lineHeight: 1.35 }}>色付きメッシュをタップすると経路を表示</div>}
             <div className="control-divider" />
             <label className="metric-select-label">地図の色</label>
             <select value={metric} onChange={(event) => setMetric(event.target.value as MetricId)}>
@@ -518,7 +519,7 @@ function App() {
             <p>{METRICS[metric].note}</p>
           </div>
 
-          <div className="route-key"><span><i className="selected-mesh-symbol" />選択メッシュ</span><span><i className="route-safe-symbol" />避難経路</span><span className="future-key">浸水区間の部分着色はSTEP 3後</span></div>
+          <div className="route-key"><span><i className="selected-mesh-symbol" />選択メッシュ</span><span><i className="route-safe-symbol" />選択メッシュの避難経路</span><span className="future-key">浸水区間の部分着色はSTEP 3後</span></div>
           <div className="map-attribution">地理院タイル / 出典：ハザードマップポータルサイト / © OpenStreetMap contributors</div>
         </section>
 
