@@ -1,0 +1,41 @@
+name: Temporary apply v4 UI copy regression
+
+on:
+  push:
+    branches: [fix/finalize-v4-ui-copy-and-regression]
+    paths:
+      - 'scripts/apply_v4_ui_copy_regression.py'
+      - '.github/workflows/apply-v4-ui-copy-regression-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/finalize-v4-ui-copy-and-regression
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply deterministic patch
+        run: python scripts/apply_v4_ui_copy_regression.py
+      - name: Validate source gate
+        run: python tests/test_frontend_v4_contract.py
+      - name: Commit patched production files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/AppCorrected.tsx tests/test_frontend_v4_contract.py
+          if git diff --cached --quiet; then
+            echo 'No patch changes to commit'
+            exit 0
+          fi
+          git commit -m 'fix: finalize STEP 4 UI semantics and regression projection'
+          git push origin HEAD:fix/finalize-v4-ui-copy-and-regression
