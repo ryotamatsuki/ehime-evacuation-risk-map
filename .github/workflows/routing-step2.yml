@@ -57,15 +57,31 @@ jobs:
         run: >-
           python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
       - name: Build corrected walking network for this municipality
-        run: >-
-          python scripts/build_walking_network.py
-          --mesh-csv data/processed_population_mesh.csv
-          --boundary-zip data/raw/N03-20240101_38_GML.zip
-          --out-dir data/processed_network
-          --qa-dir data/qa/network-step2
-          --municipality '${{ matrix.name }}'
-          --buffer-m 3000
-          --timeout 180
+        shell: bash
+        run: |
+          set -euo pipefail
+          graph='data/processed_network/${{ matrix.code }}.graphml'
+          qa='data/qa/network-step2/${{ matrix.code }}_network.json'
+          for attempt in 1 2 3; do
+            rm -f "$graph" "$qa"
+            python scripts/build_walking_network.py \
+              --mesh-csv data/processed_population_mesh.csv \
+              --boundary-zip data/raw/N03-20240101_38_GML.zip \
+              --out-dir data/processed_network \
+              --qa-dir data/qa/network-step2 \
+              --municipality '${{ matrix.name }}' \
+              --buffer-m 3000 \
+              --timeout 180 || true
+            if test -s "$graph" && python -c "import json,sys; p=json.load(open('$qa', encoding='utf-8')); sys.exit(0 if p.get('status') == 'complete' else 1)"; then
+              echo "network build succeeded on attempt ${attempt}"
+              break
+            fi
+            echo "network build attempt ${attempt} failed"
+            if test -f "$qa"; then cat "$qa"; fi
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 20)); fi
+          done
+          test -s "$graph"
+          python -c "import json,sys; p=json.load(open('$qa', encoding='utf-8')); sys.exit(0 if p.get('status') == 'complete' else 1)"
       - name: Route tsunami-exposed meshes to all reachable tsunami shelters
         run: >-
           python scripts/calculate_evacuation_routes_v2.py
