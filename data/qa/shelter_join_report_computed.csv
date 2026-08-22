@@ -1,0 +1,6 @@
+﻿metric,value,status,notes
+total,1973,computed,prefectural workbook rows
+matched_by_id,1891,computed,common_id
+matched_by_name_address,54,computed,normalized name + address fallback
+unmatched,28,computed,no coordinate imputation
+duplicate,0,computed,GSI rows whose nonblank common_id occurs more than once
