@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import pathlib
+import sys
 
 import pandas as pd
 
-from scripts.export_corrected_public_data import (
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
+
+from export_corrected_public_data import (  # noqa: E402
     build_shelter_resolver,
     jsonable,
     prepare_mesh_for_public,
