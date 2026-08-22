@@ -1,0 +1,104 @@
+name: Temporary corrected Pages production smoke
+
+on:
+  pull_request:
+    branches:
+      - 'verify/pages-post-deploy-base'
+    paths:
+      - '.pages-smoke-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for corrected production deployment
+        shell: bash
+        env:
+          SITE: https://ryotamatsuki.github.io/ehime-evacuation-risk-map
+          EXPECTED_SHA: dfcbc0d79b36e4510bb2dcaa2d7785fdd1bfe3e7
+        run: |
+          set -euo pipefail
+          rm -f analysis.json
+          for attempt in $(seq 1 60); do
+            stamp="$(date +%s)-${attempt}"
+            if curl -fsSL --retry 2 --retry-delay 1 "$SITE/data/metadata/analysis.json?verify=$stamp" -o analysis.json; then
+              if python - <<'PY'
+          import json, os, sys
+          p = json.load(open('analysis.json', encoding='utf-8'))
+          ok = (
+              p.get('analysis_version') == 'analysis-core-v4-corrected-public'
+              and p.get('analysis_source_sha') == os.environ['EXPECTED_SHA']
+              and p.get('target_meshes') == 1090
+              and p.get('complete_routes') == 1062
+              and p.get('route_unavailable') == 28
+              and p.get('cross_border_routes') == 13
+          )
+          print(json.dumps(p, ensure_ascii=False, indent=2))
+          sys.exit(0 if ok else 1)
+          PY
+              then
+                echo "Corrected production metadata matched on attempt $attempt"
+                exit 0
+              fi
+            fi
+            echo "Production metadata not matched yet; attempt=$attempt"
+            sleep 10
+          done
+          echo "Timed out waiting for corrected production deployment"
+          test -f analysis.json && cat analysis.json || true
+          exit 1
+
+      - name: Verify live HTTP and corrected data contract
+        shell: bash
+        env:
+          SITE: https://ryotamatsuki.github.io/ehime-evacuation-risk-map
+          EXPECTED_SHA: dfcbc0d79b36e4510bb2dcaa2d7785fdd1bfe3e7
+        run: |
+          set -euo pipefail
+          stamp="$(date +%s)"
+          curl -fsSL -D index.headers "$SITE/?verify=$stamp" -o index.html
+          curl -fsSL "$SITE/data/metadata/analysis.json?verify=$stamp" -o analysis-live.json
+          curl -fsSL "$SITE/data/risk/index.json?verify=$stamp" -o risk-index.json
+          curl -fsSL "$SITE/data/routes/index.json?verify=$stamp" -o route-index.json
+          curl -fsSL "$SITE/data/shelters/capacity_pressure.json?verify=$stamp" -o capacity-pressure.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          html = Path('index.html').read_text(encoding='utf-8')
+          assert '<div id="root"></div>' in html
+          assert 'assets/' in html
+
+          analysis = json.loads(Path('analysis-live.json').read_text(encoding='utf-8'))
+          assert analysis['analysis_version'] == 'analysis-core-v4-corrected-public'
+          assert analysis['analysis_source_sha'] == os.environ['EXPECTED_SHA']
+          assert analysis['target_meshes'] == 1090
+          assert analysis['complete_routes'] == 1062
+          assert analysis['route_unavailable'] == 28
+          assert analysis['cross_border_routes'] == 13
+          assert str(analysis.get('workflow_run_id', '')).strip()
+
+          risk = json.loads(Path('risk-index.json').read_text(encoding='utf-8'))
+          routes = json.loads(Path('route-index.json').read_text(encoding='utf-8'))
+          capacity = json.loads(Path('capacity-pressure.json').read_text(encoding='utf-8'))
+          assert len(risk) == 14 and sum(x['feature_count'] for x in risk) == 1090
+          assert len(routes) == 14 and sum(x['feature_count'] for x in routes) == 1090
+          assert isinstance(capacity, list) and len(capacity) == 391
+
+          print('LIVE_SMOKE_PASS')
+          print('analysis_source_sha=' + analysis['analysis_source_sha'])
+          print('workflow_run_id=' + str(analysis['workflow_run_id']))
+          print('target_meshes=' + str(analysis['target_meshes']))
+          print('complete_routes=' + str(analysis['complete_routes']))
+          print('route_unavailable=' + str(analysis['route_unavailable']))
+          print('cross_border_routes=' + str(analysis['cross_border_routes']))
+          print('risk_index_total=' + str(sum(x['feature_count'] for x in risk)))
+          print('route_index_total=' + str(sum(x['feature_count'] for x in routes)))
+          print('capacity_shelters=' + str(len(capacity)))
+          PY
+          echo '--- HTTP response ---'
+          head -20 index.headers
