@@ -3,16 +3,17 @@
 
 The STEP 2 table stores the verified OSM network geometry, while walking
 ``total_walking_distance_m`` also contains an origin access connector and a
-shelter connector.  Forty-three valid routes have zero OSM path length because
-both ends attach to the same OSM node.  This wrapper therefore constructs a
+shelter connector.  Some valid routes have zero OSM path length because both
+ends attach to the same OSM node.  This wrapper therefore constructs a
 comparable modeled route for every complete STEP 2 row:
 
     500 m mesh centroid -> stored OSM route geometry -> selected shelter
 
-The two end connectors are straight analytical connectors.  They are not
-claimed to be verified pedestrian roads.  The underlying GSI raster sampler,
-including explicit absent-tile/unknown handling, is reused from
-``calculate_route_exposure.py``.
+The two off-network end connectors are straight analytical connectors.  They
+are not claimed to be verified pedestrian roads.  Edge-based origin access
+inside the OSM network follows the stored OSM edge geometry.  The underlying
+GSI raster sampler, including explicit absent-tile/unknown handling, is reused
+from ``calculate_route_exposure.py``.
 """
 
 from __future__ import annotations
@@ -34,6 +35,8 @@ from calculate_route_exposure import (
 from mesh500 import mesh_centroid
 
 MODELED_DISTANCE_FIELD = "route_modeled_geometry_distance_m"
+DISTANCE_ABSOLUTE_OUTLIER_M = 100.0
+DISTANCE_RELATIVE_OUTLIER = 0.05
 
 
 def same_point(a: list[float], b: list[float], tolerance: float = 1e-9) -> bool:
@@ -43,6 +46,20 @@ def same_point(a: list[float], b: list[float], tolerance: float = 1e-9) -> bool:
 def append_point(points: list[list[float]], point: list[float]) -> None:
     if not points or not same_point(points[-1], point):
         points.append([float(point[0]), float(point[1])])
+
+
+def load_routes(path: pathlib.Path) -> pd.DataFrame:
+    """Load STEP 2 routes without destroying locally assigned leading-zero IDs."""
+    return pd.read_csv(
+        path,
+        encoding="utf-8-sig",
+        dtype={
+            "mesh_id": str,
+            "municipality_code": str,
+            "selected_shelter_common_id": str,
+            "shelter_municipality_code": str,
+        },
+    )
 
 
 def shelter_lookup(path: pathlib.Path) -> dict[str, tuple[float, float]]:
@@ -159,6 +176,15 @@ def validate(
     step2_distance = pd.to_numeric(complete["total_walking_distance_m"], errors="coerce")
     residual = (modeled_distance - step2_distance).abs()
     relative = residual / step2_distance.where(step2_distance > 0)
+    distance_outlier = residual.gt(DISTANCE_ABSOLUTE_OUTLIER_M) & relative.gt(
+        DISTANCE_RELATIVE_OUTLIER
+    )
+    distance_outlier_ids = complete.loc[distance_outlier, "mesh_id"].astype(str).tolist()
+    if distance_outlier_ids:
+        failures.append(
+            "modeled route geometry materially inconsistent with STEP 2 distance: "
+            f"{len(distance_outlier_ids)} routes"
+        )
 
     qa = {
         "step": "STEP 3 - modeled total evacuation-route tsunami exposure",
@@ -187,12 +213,19 @@ def validate(
             "absolute_residual_max_m": float(residual.max()) if len(residual) else None,
             "relative_residual_p95": float(relative.quantile(0.95)) if len(relative.dropna()) else None,
             "relative_residual_max": float(relative.max()) if len(relative.dropna()) else None,
+            "material_outlier_definition": (
+                f"absolute residual > {DISTANCE_ABSOLUTE_OUTLIER_M:g} m AND "
+                f"relative residual > {DISTANCE_RELATIVE_OUTLIER:.0%}"
+            ),
+            "material_outlier_count": int(distance_outlier.sum()),
+            "material_outlier_mesh_ids": distance_outlier_ids,
         },
         "geometry": {
             "primary_denominator": "mesh centroid -> stored OSM route -> selected shelter",
-            "origin_connector": "straight analytical connector",
+            "offnetwork_origin_connector": "straight analytical connector to OSM projection/node",
+            "edge_origin_access": "follows OSM edge geometry from projection to selected endpoint",
             "shelter_connector": "straight analytical connector",
-            "connector_warning": "connectors are analytical approximations, not verified pedestrian roads",
+            "connector_warning": "off-network connectors are analytical approximations, not verified pedestrian roads",
         },
         "interpretation": "route_inundation_ratio is modeled tsunami exposure, not road-failure probability",
         "release_gate": {"pass": not failures, "failures": failures},
@@ -214,11 +247,7 @@ def main() -> None:
     if args.sample_spacing_m <= 0:
         parser.error("--sample-spacing-m must be positive")
 
-    routes = pd.read_csv(
-        args.routes_csv,
-        encoding="utf-8-sig",
-        dtype={"mesh_id": str, "municipality_code": str},
-    )
+    routes = load_routes(args.routes_csv)
     shelters = shelter_lookup(args.shelters_csv)
     tiles = TileStore(args.cache)
     rows: list[dict[str, object]] = []
