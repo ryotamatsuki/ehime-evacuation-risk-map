@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'tests/test_frontend_v4_contract.py'
       - 'package.json'
       - 'package-lock.json'
       - 'vite.config.ts'
@@ -25,5 +26,8 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci
       - run: npm run build
