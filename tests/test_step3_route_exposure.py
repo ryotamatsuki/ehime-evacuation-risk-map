@@ -15,6 +15,7 @@ from calculate_route_exposure import (  # noqa: E402
     route_coordinates_for_row,
     validate_result,
 )
+from calculate_route_exposure_step3 import build_modeled_route  # noqa: E402
 
 
 class FakeTileStore:
@@ -34,6 +35,20 @@ def test_corrected_step2_geometry_is_preferred():
         }
     )
     assert route_coordinates_for_row(row) == [[132.7, 33.8], [132.701, 33.801]]
+
+
+def test_zero_network_path_is_expanded_to_modeled_total_route():
+    row = pd.Series(
+        {
+            "mesh_id": "503265471",
+            "route_network_coordinates": json.dumps([[132.7160365, 33.8695777]]),
+            "selected_shelter_common_id": "S1",
+        }
+    )
+    points = build_modeled_route(row, {"S1": (33.8700, 132.7170)})
+    assert len(points) == 3
+    assert points[1] == [132.7160365, 33.8695777]
+    assert points[-1] == [132.7170, 33.8700]
 
 
 def test_inundated_route_returns_full_exposure_and_segments():
