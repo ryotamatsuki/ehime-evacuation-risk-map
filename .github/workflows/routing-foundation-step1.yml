@@ -1,9 +1,8 @@
 name: Routing Foundation STEP 1
 
 on:
-  push:
-    branches:
-      - feature/analysis-correction-step1-routing-foundation
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
