@@ -3,7 +3,6 @@ import maplibregl from 'maplibre-gl'
 import { centroid } from '@turf/turf'
 
 type JsonRecord = Record<string, unknown>
-type WeightKey = 'tsunami_exposure' | 'vulnerable_population' | 'walking_accessibility' | 'route_inundation_exposure' | 'shelter_capacity_pressure'
 type ModeId = 'current' | 'elderly' | 'capacity' | 'simulation'
 type MetricId = 'walking' | 'tsunami' | 'aging65' | 'route' | 'score' | 'capacity'
 type Coordinate = [number, number]
@@ -57,22 +56,6 @@ const BASE = import.meta.env.BASE_URL
 const GSI_PALE_TILES = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'
 const GSI_TSUNAMI_TILES = 'https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_pref_data/38/{z}/{x}/{y}.png'
 
-const DEFAULT_WEIGHTS: Record<WeightKey, number> = {
-  tsunami_exposure: 25,
-  vulnerable_population: 20,
-  walking_accessibility: 25,
-  route_inundation_exposure: 15,
-  shelter_capacity_pressure: 15,
-}
-
-const WEIGHT_LABELS: Record<WeightKey, string> = {
-  tsunami_exposure: '津波浸水曝露',
-  vulnerable_population: '要配慮人口',
-  walking_accessibility: '徒歩アクセス',
-  route_inundation_exposure: '経路津波曝露',
-  shelter_capacity_pressure: '収容負荷',
-}
-
 const MODE_LABELS: Record<ModeId, string> = {
   current: '現状',
   elderly: '高齢者想定',
@@ -85,16 +68,8 @@ const METRICS: Record<MetricId, { label: string; unit: string; note: string }> =
   tsunami: { label: '津波浸水曝露', unit: '%', note: '500mメッシュ内の津波浸水サンプル割合' },
   aging65: { label: '65歳以上人口割合', unit: '%', note: '2020年国勢調査500mメッシュ。年齢データ欠損はグレー表示' },
   route: { label: '経路津波曝露', unit: '%', note: 'STEP 3の分類済み道路ネットワーク経路における津波浸水割合' },
-  score: { label: '政策優先度', unit: '点', note: '探索的5要素合成指標。5要素が揃うメッシュのみ表示し、欠損要素を再配分しません' },
+  score: { label: '政策優先度', unit: '点', note: 'STEP 4で確定した公開済み5要素スコアを直接表示。欠損要素の再配分・ブラウザ再計算は行いません' },
   capacity: { label: '収容負荷', unit: '%', note: 'STEP 4の避難場所単位集約需要 ÷ 収容人数。容量不明はグレー表示' },
-}
-
-const componentColumns: Record<WeightKey, string> = {
-  tsunami_exposure: 'tsunami_exposure_component',
-  vulnerable_population: 'vulnerable_population_component',
-  walking_accessibility: 'walking_accessibility_component',
-  route_inundation_exposure: 'route_inundation_exposure_component',
-  shelter_capacity_pressure: 'shelter_capacity_pressure_component_area_weighted',
 }
 
 const SCORE_STATUS_LABELS: Record<string, string> = {
@@ -141,16 +116,12 @@ async function loadJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
-const scoreForRow = (row: RiskRow, weights: Record<WeightKey, number>): number | null => {
-  // STEP 4 definition: a five-component score is only comparable when every
-  // component exists. Missing capacity/age data must never be silently removed
-  // from the denominator.
+const canonicalPolicyScore = (row: RiskRow): number | null => {
+  // STEP 4 is the single source of truth for the five-component policy score.
+  // The browser never recomputes or renormalizes weights. Incomplete rows stay
+  // null exactly as exported by Analysis Core v4.
   if (toText(row, 'score_status') !== 'complete') return null
-  const values = (Object.keys(componentColumns) as WeightKey[]).map((key) => ({ key, value: toNumber(row, componentColumns[key]) }))
-  if (values.some((item) => item.value === null)) return null
-  const denominator = values.reduce((sum, item) => sum + weights[item.key], 0)
-  if (denominator <= 0) return null
-  return values.reduce((sum, item) => sum + (item.value ?? 0) * weights[item.key], 0) / denominator
+  return toNumber(row, 'evacuation_difficulty_score')
 }
 
 const walkingMinutes = (row: JsonRecord | undefined | null, speed: '1.0' | '0.62' | '0.5'): number | null => {
@@ -268,7 +239,6 @@ function AppCorrected() {
   const [showTsunami, setShowTsunami] = useState(true)
   const [showShelters, setShowShelters] = useState(true)
   const [showRoute, setShowRoute] = useState(true)
-  const [weights, setWeights] = useState(DEFAULT_WEIGHTS)
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
 
   useEffect(() => {
@@ -345,7 +315,7 @@ function AppCorrected() {
         properties.aging65_pct = aging === null ? null : aging * 100
         properties.route_pct = route === null ? null : route * 100
         properties.capacity_pct = capacity === null ? null : capacity * 100
-        properties.policy_score = scoreForRow(risk, weights)
+        properties.policy_score = canonicalPolicyScore(risk)
         properties.score_status = toText(risk, 'score_status')
         properties.route_status = toText(risk, 'route_status')
         properties.municipality_code = risk.municipality_code
@@ -353,7 +323,7 @@ function AppCorrected() {
       }
       return { ...feature, properties }
     }),
-  }), [populationFeatures, riskByMesh, weights])
+  }), [populationFeatures, riskByMesh])
 
   const summary = useMemo(() => {
     const tsunamiProxyPopulation = filteredRows.reduce((sum, row) => sum + (toNumber(row, 'mesh_evacuation_demand_area_weighted') ?? ((toNumber(row, 'total_population') ?? 0) * (toNumber(row, 'tsunami_inundation_ratio') ?? 0))), 0)
@@ -663,9 +633,7 @@ function AppCorrected() {
             <details className="advanced-card">
               <summary><span><span className="section-kicker">ADVANCED</span><b>高度な分析</b></span><span>⌄</span></summary>
               <div className="advanced-body">
-                <div className="advanced-note">政策優先度の探索的重み。公式な政策基準ではありません。重み変更による再計算は5要素が揃うメッシュだけを対象とし、欠損要素の重みは他要素へ再配分しません。</div>
-                {(Object.keys(weights) as WeightKey[]).map((key) => <label className="weight-row" key={key}><span>{WEIGHT_LABELS[key]}</span><input type="range" min="0" max="50" step="1" value={weights[key]} onChange={(event) => setWeights((current) => ({ ...current, [key]: Number(event.target.value) }))} /><output>{weights[key]}%</output></label>)}
-                <button className="reset-button" onClick={() => setWeights(DEFAULT_WEIGHTS)}>デフォルトに戻す</button>
+                <div className="advanced-note">政策優先度はAnalysis Core v4で確定した公開済み <code>evacuation_difficulty_score</code> をそのまま表示します。探索的固定重みは「津波25 / 要配慮人口20 / 徒歩25 / 経路曝露15 / 収容負荷15」で、公式基準ではありません。ブラウザ側で重み変更・再正規化は行いません。容量・年齢等が欠損するメッシュは <code>score_status</code> に従い数値スコアを表示しません。</div>
               </div>
             </details>
           </div>
