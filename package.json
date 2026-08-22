@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "python tests/test_frontend_v4_contract.py && tsc -b && vite build",
     "preview": "vite preview",
     "test:data": "python scripts/validate_data.py --population-csv data/processed_population_mesh.csv --shelters-csv data/processed_shelters.csv --routes-csv data/route_exposure.csv --risk-csv data/risk_mesh.csv --population-geojson-dir public/data/population --out data/qa/validation_report.json --strict"
   },
