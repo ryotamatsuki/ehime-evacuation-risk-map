@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import json
+import pathlib
+import sys
 
 import pandas as pd
 from PIL import Image
 
-from scripts.build_tsunami_exposure import PALETTE
-from scripts.calculate_route_exposure import (
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
+
+from build_tsunami_exposure import PALETTE  # noqa: E402
+from calculate_route_exposure import (  # noqa: E402
     calculate_route,
     route_coordinates_for_row,
     validate_result,
