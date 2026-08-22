@@ -108,7 +108,7 @@ jobs:
           --out-dir data/qa/routing-step1
           --buffer-m 3000
           --border-distance-m 3000
-      - name: Select auditable mesh origins
+      - name: Select auditable mesh origins and classify network gaps
         run: >-
           python scripts/select_mesh_origins.py
           --mesh-csv data/processed_population_mesh.csv
@@ -136,22 +136,10 @@ jobs:
           print(json.dumps(payload, ensure_ascii=False, indent=2))
           PY
       - name: Enforce STEP 1 release gate
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          foundation = json.loads(Path('data/qa/routing-step1/routing_foundation_summary.json').read_text(encoding='utf-8'))
-          origins = json.loads(Path('data/qa/routing-step1/mesh_origin_selection_summary.json').read_text(encoding='utf-8'))
-          if not foundation['release_gate']['network_aoi_is_boundary_based']:
-              raise SystemExit('release gate failed: network AOI metadata is not boundary based')
-          if not foundation['release_gate']['all_5821_meshes_snap_checked']:
-              raise SystemExit('release gate failed: not all population meshes were checked')
-          if not origins['release_gate']['all_meshes_have_representative_origin']:
-              raise SystemExit('release gate failed: representative origin missing')
-          if origins['release_gate']['blocking']:
-              raise SystemExit(f"release gate blocked: tsunami-target critical origins={origins['release_gate']['analysis_target_critical_count']}")
-          print('STEP 1 release gate: PASS')
-          PY
+        run: >-
+          python scripts/enforce_step1_gate.py
+          --foundation data/qa/routing-step1/routing_foundation_summary.json
+          --origins data/qa/routing-step1/mesh_origin_selection_summary.json
       - name: Upload aggregate STEP 1 QA evidence
         if: always()
         uses: actions/upload-artifact@v4
