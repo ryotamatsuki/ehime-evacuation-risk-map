@@ -1,0 +1,114 @@
+{
+  "step": "STEP 4 - evacuation demand, shelter capacity pressure, and exploratory risk",
+  "verified_at": "2026-08-22",
+  "baseline_main_sha": "6d89cc68fd4e2ca435e70addf4677b8a7f98d596",
+  "verified_calculation_head_sha": "3ae22767767bc5349f6d755973d3bc20c890637f",
+  "workflow_run_id": 32564613773,
+  "artifact_id": 9473850300,
+  "input_target_rows": 1090,
+  "route_status_counts": {
+    "complete": 1062,
+    "no_network_path": 26,
+    "network_coverage_gap": 2
+  },
+  "complete_routes": 1062,
+  "route_unavailable_rows": 28,
+  "demand": {
+    "definition_primary": "total_population * tsunami_inundation_ratio",
+    "primary_assumption": "population uniformly distributed within each 500m mesh",
+    "definition_sensitivity": "total_population",
+    "forecast_warning": "scenario/proxy only; not an actual evacuee forecast",
+    "total_area_weighted": 144255.71597633138,
+    "assigned_area_weighted": 143959.99408284025,
+    "unassigned_area_weighted": 295.7218934911242,
+    "total_full_mesh": 306220.0,
+    "assigned_full_mesh": 304137.0,
+    "unassigned_full_mesh": 2083.0
+  },
+  "shelters": {
+    "assigned_shelter_count": 391,
+    "capacity_known_assigned_shelters": 272,
+    "capacity_missing_assigned_shelters": 119,
+    "assigned_meshes_with_missing_capacity": 151,
+    "over_capacity_area_weighted_shelters": 35,
+    "over_capacity_full_mesh_shelters": 72,
+    "max_capacity_pressure_area_weighted": 64.05662192716602,
+    "max_capacity_pressure_full_mesh": 73.29268292682927,
+    "selected_ambiguous_shelter_keys": []
+  },
+  "risk": {
+    "weights_full": {
+      "tsunami_exposure": 25.0,
+      "vulnerable_population": 20.0,
+      "walking_accessibility": 25.0,
+      "route_inundation_exposure": 15.0,
+      "shelter_capacity_pressure": 15.0
+    },
+    "weights_core": {
+      "tsunami_exposure": 25.0,
+      "vulnerable_population": 20.0,
+      "walking_accessibility": 25.0,
+      "route_inundation_exposure": 15.0
+    },
+    "official_policy_standard": false,
+    "walking_distance_normalization": {
+      "method": "5th_to_95th_percentile among complete STEP 3 routes",
+      "p05_m": 226.65895796075466,
+      "p95_m": 4298.347792400045
+    },
+    "capacity_component": "min(capacity_pressure_area_weighted * 100, 100)",
+    "missing_capacity_handling": "full five-component score is null; no weight renormalization",
+    "route_failure_handling": "numeric risk score is null; explicit route failure status retained",
+    "route_exposure_uncertainty": "point uses classified coverage; lower/upper bounds treat unknown coverage as dry/inundated",
+    "routes_with_unknown_exposure": 2,
+    "score_status_counts": {
+      "complete": 813,
+      "core_only_missing_capacity": 128,
+      "core_data_incomplete": 121,
+      "route_unavailable": 28
+    },
+    "core_score_nonnull": 941,
+    "full_score_nonnull": 813,
+    "core_data_incomplete_reason": {
+      "missing_vulnerable_population_component": 121,
+      "missing_tsunami_exposure_component": 0,
+      "missing_walking_accessibility_component": 0,
+      "missing_route_inundation_exposure_component": 0
+    },
+    "artifact_score_distribution": {
+      "core": {
+        "median": 33.044549059516214,
+        "p90": 55.26249522376255,
+        "p95": 58.48106685811528,
+        "max": 77.71338970160875
+      },
+      "full_area_weighted": {
+        "median": 33.995045912178654,
+        "p90": 59.76029783121052,
+        "p95": 63.518017096882204,
+        "max": 79.04994788849876
+      },
+      "full_mesh_sensitivity": {
+        "median": 36.35206128952596,
+        "p90": 60.37317452676439,
+        "p95": 63.95112186569134,
+        "max": 81.05638124636744
+      }
+    }
+  },
+  "artifact_inspection": {
+    "max_area_weighted_pressure_shelter": {
+      "common_id": "E3840100018201",
+      "name": "グランフィールド松前町舎前",
+      "assigned_mesh_count": 8,
+      "assigned_demand_area_weighted": 7878.964497,
+      "recorded_capacity": 123.0,
+      "capacity_pressure_area_weighted": 64.05662192716602
+    },
+    "interpretation": "routing is not capacity-constrained; pressure diagnoses the selected-shelter assignment and does not redistribute overflow"
+  },
+  "release_gate": {
+    "pass": true,
+    "failures": []
+  }
+}
