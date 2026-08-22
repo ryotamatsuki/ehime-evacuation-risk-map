@@ -1,0 +1,13 @@
+{
+  "mesh_count": 5821,
+  "route_ready_meshes": 5764,
+  "assigned_population_nonnull": 5764,
+  "capacity_pressure_nonnull": 4759,
+  "missing_capacity_among_route_ready": 1005,
+  "capacity_parse_status": {
+    "numeric": 1119,
+    "missing": 282
+  },
+  "missing_capacity_is_not_zero": true,
+  "assignment_scenario": "nearest tsunami-compatible shelter by pedestrian-network distance"
+}

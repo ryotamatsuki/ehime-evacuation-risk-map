@@ -1,0 +1,32 @@
+name: Data QA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install data dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Validate processed data
+        run: >-
+          python scripts/validate_data.py
+          --population-csv data/processed_population_mesh.csv
+          --shelters-csv data/processed_shelters.csv
+          --routes-dir public/data/routes
+          --risk-dir public/data/risk
+          --population-geojson-dir public/data/population
+          --out data/qa/validation_report.json
+          --strict

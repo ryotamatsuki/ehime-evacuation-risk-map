@@ -1,7 +1,4 @@
 data/raw/
-data/processed_shelters.csv
-data/processed_population_mesh.csv
-data/tsunami_exposure.csv
 data/raw/tsunami_tiles/
 data/processed_network/
 public/data/population/mesh_500m.geojson

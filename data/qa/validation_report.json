@@ -1,0 +1,128 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "mesh_id_unique",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "population_total_null",
+      "status": "pass",
+      "value": 0,
+      "detail": "秘匿・欠損を0へ置換していない"
+    },
+    {
+      "name": "population_65plus_not_over_total",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "age_missing_preserved",
+      "status": "pass",
+      "value": 1509,
+      "detail": ""
+    },
+    {
+      "name": "shelter_common_id_unique",
+      "status": "warning",
+      "value": 4,
+      "detail": "重複レコード数=8;施設属性正本の重複を保持"
+    },
+    {
+      "name": "shelter_coordinate_missing",
+      "status": "warning",
+      "value": 28,
+      "detail": "未照合施設は推測座標で補完していない"
+    },
+    {
+      "name": "shelter_tsunami_flag_values",
+      "status": "pass",
+      "value": [],
+      "detail": ""
+    },
+    {
+      "name": "tsunami_shelter_capacity_missing",
+      "status": "warning",
+      "value": 282,
+      "detail": "収容人数nullを0として扱っていない"
+    },
+    {
+      "name": "route_mesh_id_unique",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "route_calculation_failure",
+      "status": "warning",
+      "value": 57,
+      "detail": "ネットワーク上で経路なしのメッシュはnull保持"
+    },
+    {
+      "name": "walking_time_formula",
+      "status": "pass",
+      "value": 0,
+      "detail": "time = network_distance / speed"
+    },
+    {
+      "name": "evacuation_difficulty_score_0_100",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "tsunami_exposure_component_0_100",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "vulnerable_population_component_0_100",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "walking_accessibility_component_0_100",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "route_inundation_exposure_component_0_100",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "shelter_capacity_pressure_component_0_100",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "risk_score_nonnull",
+      "status": "pass",
+      "value": 0,
+      "detail": "available weights are renormalized"
+    },
+    {
+      "name": "data_completeness_0_1",
+      "status": "pass",
+      "value": 0,
+      "detail": ""
+    },
+    {
+      "name": "mesh_geometry_valid",
+      "status": "pass",
+      "value": 0,
+      "detail": "GeoJSON files=14, features=5821; structural polygon check (Shapely unavailable)"
+    }
+  ],
+  "failure_count": 0,
+  "warning_count": 4,
+  "scope": "14 municipalities / 500m mesh"
+}

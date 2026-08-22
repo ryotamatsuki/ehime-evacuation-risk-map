@@ -5,7 +5,13 @@
     "shelter attribute-coordinate join",
     "500m population and age mesh generation",
     "official tsunami tile sampling",
-    "OSM pedestrian-network extraction (14 of 14 municipalities; QA only)"
+    "OSM pedestrian-network extraction (14 of 14 municipalities; QA only)",
+    "nearest tsunami-compatible shelter by network distance",
+    "route inundation exposure",
+    "capacity pressure",
+    "exploratory risk score",
+    "data validation",
+    "municipality-split web data export"
   ],
   "computed_counts": {
     "population_meshes": 5821,
@@ -17,18 +23,24 @@
     "shelter_join_matched_by_id": 1891,
     "shelter_join_matched_by_name_address": 54,
     "shelter_join_unmatched": 28,
+    "shelter_join_duplicate_common_ids": 4,
+    "shelter_join_duplicate_records": 8,
     "shelter_join_duplicate_gsi_ids": 0,
     "walking_network_complete_municipalities": 14,
-    "walking_network_pending_municipalities": 0
+    "walking_network_pending_municipalities": 0,
+    "route_meshes_complete": 5764,
+    "route_meshes_without_network_path": 57,
+    "route_exposure_complete": 5662,
+    "route_exposure_no_geometry": 102,
+    "capacity_pressure_complete": 4759,
+    "capacity_pressure_missing_capacity": 1005,
+    "risk_score_complete": 3554,
+    "risk_score_partial": 2267
   },
   "pending": [
-    "nearest tsunami-compatible shelter by network distance",
-    "route inundation exposure",
-    "capacity pressure",
-    "risk score",
-    "React MapLibre UI",
+    "browser and mobile QA",
     "GitHub Pages deployment",
-    "browser and mobile QA"
+    "公開URLの実ブラウザ確認"
   ],
   "data_integrity": {
     "no_fabricated_values": true,

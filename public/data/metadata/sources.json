@@ -39,6 +39,20 @@
       "role": "tsunami raster; direct web display and sampled offline analysis",
       "url": "https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_pref_data/38/{z}/{x}/{y}.png",
       "note": "愛媛県の最新法定津波浸水想定は2025年9月2日に変更。配信タイルの愛媛県個別反映日は公開ページ上で明示されていない。"
+    },
+    {
+      "name": "OpenStreetMap pedestrian network",
+      "role": "walking routing only; network intermediates are not published",
+      "license": "ODbL",
+      "attribution": "© OpenStreetMap contributors",
+      "url": "https://www.openstreetmap.org/copyright"
+    },
+    {
+      "name": "愛媛県地震被害想定調査結果に係るGISデータ",
+      "role": "latest official reference only; not used in P0 composite score",
+      "date": "2026-02 survey publication / 2026-07-26 GIS release",
+      "license": "CC BY-NC-ND",
+      "note": "271MB ZIPはリポジトリへ格納せず、加工複合リスクも公開しない。"
     }
   ],
   "derived_data_policy": "Only processed analysis data is published; raw source archives and the 2026 Ehime earthquake damage-assumption 271MB ZIP are not published."

@@ -1,0 +1,9 @@
+{
+  "route_count": 5821,
+  "complete_exposure_routes": 5662,
+  "unavailable_routes": 57,
+  "error_routes": 0,
+  "sample_spacing_m": 25.0,
+  "denominator": "route_geometry_distance_m computed from route polyline coordinates",
+  "interpretation": "route_inundation_ratio is tsunami inundation exposure along the pedestrian route, not a probability of road failure"
+}

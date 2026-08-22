@@ -1,0 +1,25 @@
+{
+  "mesh_count": 5821,
+  "score_complete": 3554,
+  "score_partial": 2267,
+  "score_unavailable": 0,
+  "weights": {
+    "tsunami_exposure": 25.0,
+    "vulnerable_population": 20.0,
+    "walking_accessibility": 25.0,
+    "route_inundation_exposure": 15.0,
+    "shelter_capacity_pressure": 15.0
+  },
+  "walking_distance_normalization": {
+    "method": "5th_to_95th_percentile_global_clip",
+    "p05_m": 178.94147387976176,
+    "p95_m": 24896.468236431483
+  },
+  "capacity_pressure_normalization": {
+    "method": "pressure_1_0_equals_100_and_saturates",
+    "threshold": 1.0
+  },
+  "vulnerable_population_definition": "65歳以上人口割合を0-100へ変換。75歳以上割合は別表示。",
+  "missing_handling": "available weights are renormalized per mesh; data_completeness is reported separately",
+  "exploratory_only": true
+}

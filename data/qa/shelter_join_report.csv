@@ -1,6 +1,8 @@
-metric,value,status,notes
-total,1973,computed,"県XLSXの全行"
-matched_by_id,1891,computed,"common_id一致"
-matched_by_name_address,54,computed,"正規化した名称＋住所によるフォールバック一致"
-unmatched,28,computed,"座標補完なし。未照合施設は地図へ追加していない"
-duplicate,0,computed,"今回取得したGSI CSVの非空common_id重複行"
+﻿metric,value,status,notes
+total,1973,computed,prefectural workbook rows
+matched_by_id,1891,computed,common_id
+matched_by_name_address,54,computed,normalized name + address fallback
+unmatched,28,computed,no coordinate imputation
+duplicate,4,computed,prefectural rows whose common_id occurs more than once (unique IDs)
+prefecture_duplicate_records,8,computed,all prefectural records participating in duplicate common IDs
+gsi_duplicate_records,0,computed,GSI rows whose nonblank common_id occurs more than once

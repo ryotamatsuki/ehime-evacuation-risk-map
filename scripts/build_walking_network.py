@@ -45,6 +45,10 @@ def build_one(municipality: str, points: list[tuple[float, float]], args: argpar
     }
     try:
         graph = ox.graph.graph_from_polygon(polygon, network_type="walk", retain_all=True, simplify=True)
+        # Keep the coordinate reference system explicit in the intermediate
+        # GraphML. OSMnx normally adds this metadata, but making it explicit
+        # keeps downstream loaders deterministic across OSMnx versions.
+        graph.graph["crs"] = "EPSG:4326"
         graph.graph["municipality"] = municipality
         graph.graph["network_type"] = "walk"
         graph.graph["source_attribution"] = "© OpenStreetMap contributors; ODbL"

@@ -3,4 +3,6 @@ total,1973,computed,prefectural workbook rows
 matched_by_id,1891,computed,common_id
 matched_by_name_address,54,computed,normalized name + address fallback
 unmatched,28,computed,no coordinate imputation
-duplicate,0,computed,GSI rows whose nonblank common_id occurs more than once
+duplicate,4,computed,prefectural rows whose common_id occurs more than once (unique IDs)
+prefecture_duplicate_records,8,computed,all prefectural records participating in duplicate common IDs
+gsi_duplicate_records,0,computed,GSI rows whose nonblank common_id occurs more than once

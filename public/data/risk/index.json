@@ -1,0 +1,86 @@
+[
+  {
+    "municipality_code": "38201",
+    "municipality": "松山市",
+    "file": "risk/risk_mesh_38201.json",
+    "feature_count": 792
+  },
+  {
+    "municipality_code": "38202",
+    "municipality": "今治市",
+    "file": "risk/risk_mesh_38202.json",
+    "feature_count": 748
+  },
+  {
+    "municipality_code": "38203",
+    "municipality": "宇和島市",
+    "file": "risk/risk_mesh_38203.json",
+    "feature_count": 562
+  },
+  {
+    "municipality_code": "38204",
+    "municipality": "八幡浜市",
+    "file": "risk/risk_mesh_38204.json",
+    "feature_count": 220
+  },
+  {
+    "municipality_code": "38205",
+    "municipality": "新居浜市",
+    "file": "risk/risk_mesh_38205.json",
+    "feature_count": 247
+  },
+  {
+    "municipality_code": "38206",
+    "municipality": "西条市",
+    "file": "risk/risk_mesh_38206.json",
+    "feature_count": 570
+  },
+  {
+    "municipality_code": "38207",
+    "municipality": "大洲市",
+    "file": "risk/risk_mesh_38207.json",
+    "feature_count": 746
+  },
+  {
+    "municipality_code": "38210",
+    "municipality": "伊予市",
+    "file": "risk/risk_mesh_38210.json",
+    "feature_count": 307
+  },
+  {
+    "municipality_code": "38213",
+    "municipality": "四国中央市",
+    "file": "risk/risk_mesh_38213.json",
+    "feature_count": 426
+  },
+  {
+    "municipality_code": "38214",
+    "municipality": "西予市",
+    "file": "risk/risk_mesh_38214.json",
+    "feature_count": 657
+  },
+  {
+    "municipality_code": "38356",
+    "municipality": "上島町",
+    "file": "risk/risk_mesh_38356.json",
+    "feature_count": 58
+  },
+  {
+    "municipality_code": "38401",
+    "municipality": "松前町",
+    "file": "risk/risk_mesh_38401.json",
+    "feature_count": 66
+  },
+  {
+    "municipality_code": "38442",
+    "municipality": "伊方町",
+    "file": "risk/risk_mesh_38442.json",
+    "feature_count": 115
+  },
+  {
+    "municipality_code": "38506",
+    "municipality": "愛南町",
+    "file": "risk/risk_mesh_38506.json",
+    "feature_count": 307
+  }
+]

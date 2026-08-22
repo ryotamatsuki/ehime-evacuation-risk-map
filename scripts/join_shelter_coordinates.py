@@ -86,13 +86,18 @@ def main() -> None:
     pref.to_csv(args.out, index=False, encoding="utf-8-sig")
 
     duplicate_ids = gsi.loc[gsi["gsi_common_id"].ne(""), "gsi_common_id"]
-    duplicate_count = int(duplicate_ids.duplicated(keep=False).sum())
+    gsi_duplicate_records = int(duplicate_ids.duplicated(keep=False).sum())
+    prefecture_duplicate_ids = pref.loc[pref["common_id"].ne(""), "common_id"]
+    prefecture_duplicate_count = int(prefecture_duplicate_ids[prefecture_duplicate_ids.duplicated(keep=False)].nunique())
+    prefecture_duplicate_records = int(prefecture_duplicate_ids.duplicated(keep=False).sum())
     report = pd.DataFrame([
         {"metric": "total", "value": len(pref), "status": "computed", "notes": "prefectural workbook rows"},
         {"metric": "matched_by_id", "value": method.count("matched_by_id"), "status": "computed", "notes": "common_id"},
         {"metric": "matched_by_name_address", "value": method.count("matched_by_name_address"), "status": "computed", "notes": "normalized name + address fallback"},
         {"metric": "unmatched", "value": method.count("unmatched"), "status": "computed", "notes": "no coordinate imputation"},
-        {"metric": "duplicate", "value": duplicate_count, "status": "computed", "notes": "GSI rows whose nonblank common_id occurs more than once"},
+        {"metric": "duplicate", "value": prefecture_duplicate_count, "status": "computed", "notes": "prefectural rows whose common_id occurs more than once (unique IDs)"},
+        {"metric": "prefecture_duplicate_records", "value": prefecture_duplicate_records, "status": "computed", "notes": "all prefectural records participating in duplicate common IDs"},
+        {"metric": "gsi_duplicate_records", "value": gsi_duplicate_records, "status": "computed", "notes": "GSI rows whose nonblank common_id occurs more than once"},
     ])
     args.report.parent.mkdir(parents=True, exist_ok=True)
     report.to_csv(args.report, index=False, encoding="utf-8-sig")
