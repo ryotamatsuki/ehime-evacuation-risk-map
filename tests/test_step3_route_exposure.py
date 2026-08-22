@@ -4,18 +4,24 @@ import json
 import pathlib
 import sys
 
+import networkx as nx
 import pandas as pd
 from PIL import Image
+from pyproj import Transformer
+from shapely.geometry import LineString
+from shapely.ops import transform as shapely_transform
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 
 from build_tsunami_exposure import PALETTE  # noqa: E402
+from calculate_evacuation_routes_v2 import route_network_coordinates  # noqa: E402
 from calculate_route_exposure import (  # noqa: E402
     calculate_route,
     route_coordinates_for_row,
     validate_result,
 )
-from calculate_route_exposure_step3 import build_modeled_route  # noqa: E402
+from calculate_route_exposure_step3 import build_modeled_route, load_routes  # noqa: E402
+from routing_foundation_qa import PROJECTED_CRS  # noqa: E402
 
 
 class FakeTileStore:
@@ -49,6 +55,54 @@ def test_zero_network_path_is_expanded_to_modeled_total_route():
     assert len(points) == 3
     assert points[1] == [132.7160365, 33.8695777]
     assert points[-1] == [132.7170, 33.8700]
+
+
+def test_route_loader_preserves_leading_zero_shelter_id(tmp_path):
+    path = tmp_path / "routes.csv"
+    pd.DataFrame(
+        [
+            {
+                "mesh_id": "503255162",
+                "municipality_code": "38210",
+                "selected_shelter_common_id": "01201",
+                "shelter_municipality_code": "38210",
+            }
+        ]
+    ).to_csv(path, index=False, encoding="utf-8-sig")
+    loaded = load_routes(path)
+    assert loaded.loc[0, "selected_shelter_common_id"] == "01201"
+
+
+def test_edge_origin_geometry_follows_curved_osm_edge():
+    graph = nx.MultiDiGraph()
+    graph.add_node(1, x=132.0000, y=33.0000)
+    graph.add_node(2, x=132.0300, y=33.0000)
+    geometry = LineString(
+        [
+            (132.0000, 33.0000),
+            (132.0100, 33.0100),
+            (132.0200, 33.0100),
+            (132.0300, 33.0000),
+        ]
+    )
+    graph.add_edge(1, 2, key=0, length=4000.0, geometry=geometry)
+
+    to_metric = Transformer.from_crs("EPSG:4326", PROJECTED_CRS, always_xy=True)
+    metric = shapely_transform(to_metric.transform, geometry)
+    projection = metric.interpolate(metric.length * 0.75)
+    origin = {
+        "origin_method": "walk_edge_intersects_mesh",
+        "origin_edge_u": 1,
+        "origin_edge_v": 2,
+        "origin_edge_projection_x_m": projection.x,
+        "origin_edge_projection_y_m": projection.y,
+    }
+    coordinates = route_network_coordinates(graph, origin, [1])
+
+    assert len(coordinates) >= 4
+    assert coordinates[-1] == [132.0, 33.0]
+    assert any(abs(lon - 132.01) < 1e-9 and abs(lat - 33.01) < 1e-9 for lon, lat in coordinates)
+    assert any(abs(lon - 132.02) < 1e-9 and abs(lat - 33.01) < 1e-9 for lon, lat in coordinates)
 
 
 def test_inundated_route_returns_full_exposure_and_segments():
