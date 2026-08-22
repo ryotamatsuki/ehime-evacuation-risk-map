@@ -1,0 +1,17 @@
+{
+  "url": "https://ryotamatsuki.github.io/ehime-evacuation-risk-map/",
+  "verified_at": "2026-08-22",
+  "cloud_chrome": {
+    "page_title": "南海トラフ・本当に逃げられるかマップ",
+    "data_loaded": true,
+    "municipality_filter": true,
+    "metric_buttons": true,
+    "weight_sliders": true,
+    "ranking_selection": true,
+    "mesh_detail": true,
+    "webgl": false,
+    "map_behavior": "WebGL fallback shown; surrounding UI remains usable"
+  },
+  "native_safari": "not_available_in_execution_environment",
+  "iphone_safari": "not_available_in_execution_environment"
+}

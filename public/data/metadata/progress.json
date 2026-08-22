@@ -11,7 +11,10 @@
     "capacity pressure",
     "exploratory risk score",
     "data validation",
-    "municipality-split web data export"
+    "municipality-split web data export",
+    "React MapLibre UI",
+    "GitHub Pages deployment",
+    "Cloud Chrome DOM interaction QA"
   ],
   "computed_counts": {
     "population_meshes": 5821,
@@ -38,9 +41,7 @@
     "risk_score_partial": 2267
   },
   "pending": [
-    "browser and mobile QA",
-    "GitHub Pages deployment",
-    "公開URLの実ブラウザ確認"
+    "Safari / iPhone Safari visual QA in a native-device environment"
   ],
   "data_integrity": {
     "no_fabricated_values": true,
