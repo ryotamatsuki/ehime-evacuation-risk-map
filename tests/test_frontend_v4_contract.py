@@ -94,8 +94,12 @@ def load_index_rows(index_path: Path) -> list[dict[str, Any]]:
 def verify_source_contract() -> None:
     app = APP.read_text(encoding="utf-8")
     main = MAIN.read_text(encoding="utf-8")
+    wrapper_path = ROOT / "src" / "AppWithSimulation.tsx"
+    wrapper = wrapper_path.read_text(encoding="utf-8") if wrapper_path.exists() else ""
 
-    require("import App from './AppCorrected'" in main, "main.tsx must use AppCorrected")
+    direct = "import App from './AppCorrected'" in main
+    wrapped = "import App from './AppWithSimulation'" in main and "import AppCorrected from './AppCorrected'" in wrapper and "<AppCorrected />" in wrapper
+    require(direct or wrapped, "active app must retain AppCorrected as the Analysis Core v4 UI")
 
     required = [
         "canonicalPolicyScore",
@@ -134,7 +138,6 @@ def verify_source_contract() -> None:
     for token in forbidden:
         require(token not in app, f"legacy/fallback active-UI behavior remains: {token}")
 
-    # Synthetic guards prove that old values cannot be substituted for missing v4 data.
     require(
         ui_capacity_pressure({"capacity_pressure_area_weighted": None, "capacity_pressure": 9.9}) is None,
         "legacy capacity pressure must never fill a missing area-weighted value",
