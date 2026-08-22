@@ -5,7 +5,7 @@
     "shelter attribute-coordinate join",
     "500m population and age mesh generation",
     "official tsunami tile sampling",
-    "partial OSM pedestrian-network extraction (13 of 14 municipalities; QA only)"
+    "OSM pedestrian-network extraction (14 of 14 municipalities; QA only)"
   ],
   "computed_counts": {
     "population_meshes": 5821,
@@ -18,11 +18,10 @@
     "shelter_join_matched_by_name_address": 54,
     "shelter_join_unmatched": 28,
     "shelter_join_duplicate_gsi_ids": 0,
-    "walking_network_complete_municipalities": 13,
-    "walking_network_pending_municipalities": 1
+    "walking_network_complete_municipalities": 14,
+    "walking_network_pending_municipalities": 0
   },
   "pending": [
-    "walking network for the remaining 1 municipality",
     "nearest tsunami-compatible shelter by network distance",
     "route inundation exposure",
     "capacity pressure",
