@@ -1,0 +1,36 @@
+name: Temporary apply post-v4 UI hardening
+
+on:
+  push:
+    branches: [fix/post-v4-ui-data-contract-hardening]
+    paths:
+      - 'scripts/apply_post_v4_ui_hardening.py'
+      - '.github/workflows/apply-post-v4-ui-hardening-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/post-v4-ui-data-contract-hardening
+      - name: Apply deterministic source patch
+        run: python scripts/apply_post_v4_ui_hardening.py
+      - name: Commit patched active frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/AppCorrected.tsx
+          if git diff --cached --quiet; then
+            echo 'No patch changes to commit'
+          else
+            git commit -m 'fix: bind UI to Analysis Core v4 data contract'
+            git push origin HEAD:fix/post-v4-ui-data-contract-hardening
+          fi
