@@ -9,39 +9,95 @@ permissions:
   contents: read
 
 jobs:
-  routing-foundation-live-qa:
+  unit:
+    name: STEP 1A - unit and methodology checks
     runs-on: ubuntu-latest
-    timeout-minutes: 180
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: pytest -q tests/test_routing_foundation.py
 
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-
-      - name: Unit tests
-        run: pytest -q tests/test_routing_foundation.py
-
+  networks:
+    name: STEP 1B - network ${{ matrix.code }} ${{ matrix.name }}
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {code: '38201', name: '松山市'}
+          - {code: '38202', name: '今治市'}
+          - {code: '38203', name: '宇和島市'}
+          - {code: '38204', name: '八幡浜市'}
+          - {code: '38205', name: '新居浜市'}
+          - {code: '38206', name: '西条市'}
+          - {code: '38207', name: '大洲市'}
+          - {code: '38210', name: '伊予市'}
+          - {code: '38213', name: '四国中央市'}
+          - {code: '38214', name: '西予市'}
+          - {code: '38356', name: '上島町'}
+          - {code: '38401', name: '松前町'}
+          - {code: '38442', name: '伊方町'}
+          - {code: '38506', name: '愛南町'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
       - name: Download N03 boundary source
         run: >-
           python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
-
-      - name: Rebuild 14 municipal pedestrian networks with corrected AOIs
+      - name: Build one corrected municipal walking network
         run: >-
           python scripts/build_walking_network.py
           --mesh-csv data/processed_population_mesh.csv
           --boundary-zip data/raw/N03-20240101_38_GML.zip
           --out-dir data/processed_network
           --qa-dir data/qa/network-step1
+          --municipality '${{ matrix.name }}'
           --buffer-m 3000
           --timeout 180
+      - name: Stage temporary network artifact
+        run: |
+          mkdir -p artifact
+          cp 'data/processed_network/${{ matrix.code }}.graphml' 'artifact/${{ matrix.code }}.graphml'
+          cp 'data/qa/network-step1/${{ matrix.code }}_network.json' 'artifact/${{ matrix.code }}_network.json'
+      - name: Upload temporary municipality network
+        uses: actions/upload-artifact@v4
+        with:
+          name: routing-step1-network-${{ matrix.code }}
+          path: artifact
+          retention-days: 3
 
+  aggregate:
+    name: STEP 1C - aggregate spatial QA and release gate
+    needs: networks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Download N03 boundary source
+        run: >-
+          python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
+      - name: Download all temporary municipal networks
+        uses: actions/download-artifact@v4
+        with:
+          pattern: routing-step1-network-*
+          path: data/processed_network
+          merge-multiple: true
       - name: Run routing foundation spatial QA
         run: >-
           python scripts/routing_foundation_qa.py
@@ -52,7 +108,6 @@ jobs:
           --out-dir data/qa/routing-step1
           --buffer-m 3000
           --border-distance-m 3000
-
       - name: Enforce STEP 1 release gate
         run: |
           python - <<'PY'
@@ -68,13 +123,10 @@ jobs:
               raise SystemExit(f"release gate blocked: critical origin snaps={gate['critical_origin_snap_count']}")
           print('STEP 1 release gate: PASS')
           PY
-
-      - name: Upload STEP 1 QA evidence
+      - name: Upload aggregate STEP 1 QA evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: routing-foundation-step1-qa
-          path: |
-            data/qa/network-step1
-            data/qa/routing-step1
+          path: data/qa/routing-step1
           retention-days: 14
