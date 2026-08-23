@@ -6,6 +6,29 @@ from pathlib import Path
 import pandas as pd
 
 EXPECTED_ANALYSIS_VERSION = 'analysis-core-v4-corrected-public'
+CAPACITY_CONTRACT_COLUMNS = ('shelter_key', 'shelter_capacity', 'capacity_status')
+
+
+def normalize_capacity_contract(capacities: pd.DataFrame) -> pd.DataFrame:
+    """Return only fields owned by the capacity side of the STEP 8/9 join.
+
+    Candidate routing is the canonical owner of shelter identity/name fields.
+    Keeping descriptive fields from the source shelter table here would make
+    pandas suffix them to ``*_x``/``*_y`` during the many-to-one merge and can
+    silently break downstream routing metadata access.
+    """
+    required = {'shelter_key', 'shelter_capacity'}
+    missing = sorted(required - set(capacities.columns))
+    if missing:
+        raise ValueError(f"capacity table missing required columns: {', '.join(missing)}")
+    keep = [column for column in CAPACITY_CONTRACT_COLUMNS if column in capacities.columns]
+    result = capacities.loc[:, keep].copy()
+    result['shelter_key'] = result['shelter_key'].astype(str)
+    result['shelter_capacity'] = pd.to_numeric(result['shelter_capacity'], errors='coerce')
+    if result.duplicated('shelter_key').any():
+        raise ValueError('capacity table contains duplicate shelter_key')
+    return result
+
 
 def load_public_analysis(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     root=Path(root)
