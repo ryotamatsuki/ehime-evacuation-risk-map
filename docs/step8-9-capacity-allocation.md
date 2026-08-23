@@ -4,6 +4,8 @@
 
 This is a new analytical layer on top of canonical Analysis Core v4. It does not replace or mutate STEP 2–7 outputs. The production regression contract remains 1,090 target meshes, 1,062 complete canonical routes, 28 route-unavailable meshes, 13 cross-border canonical routes, 813 complete five-component scores, 128 capacity-missing core meshes, and 35 area-weighted fixed-assignment overloaded shelters. Any STEP 8/9 implementation that changes those canonical values fails release.
 
+`tests/step89_production_baseline.json` is the numerical source of truth for released STEP 8/9 values. STEP 9.5 corrected stale intermediate numbers that had been copied into the merged PR description; the implementation, baseline fixture, this document and release CI were already on the values below. Release notes must be copied from the frozen fixture rather than recomputed or manually transcribed from intermediate runs.
+
 ## STEP 8A — Model contract
 
 STEP 8 introduces capacity-constrained allocation as a separate scenario. Each tsunami target mesh keeps multiple reachable tsunami-shelter candidates. Candidate ranking uses the same walking graph and distance accounting as STEP 2: origin access + network path + shelter connector. Candidate rank 1 must match canonical STEP 2 shelter identity and total distance for all 1,062 complete routes.
@@ -14,7 +16,9 @@ The deterministic solver uses integer min-cost flow with demand/capacity scaled 
 
 ## STEP 8B — Multi-shelter candidate routing
 
-A multi-label, multi-source Dijkstra retains up to 10 nearest distinct shelter identities. Capacity does not affect routing. Release gates require one candidate-status row per target mesh, exactly 1,062 complete and 28 unavailable, per-mesh status parity with STEP 2, rank-1 identity parity, rank-1 distance absolute difference <= 1e-6 m, and unique consecutive distance-ordered ranks.
+A multi-label, multi-source Dijkstra retains reachable shelter identities in walking-distance order. STEP 8 production allocation is fixed at K=10. STEP 10 may generate a wider K=30 candidate table, but the STEP 8/9 solver still truncates that table back to K=10, so the released production contract cannot drift merely because wider sensitivity candidates were computed. Capacity does not affect routing.
+
+Release gates require one candidate-status row per target mesh, exactly 1,062 complete and 28 unavailable, per-mesh status parity with STEP 2, rank-1 identity parity, rank-1 distance absolute difference <= 1e-6 m, and unique consecutive distance-ordered ranks.
 
 The release implementation applies a double parity gate. Candidate rank 1 must reproduce the same-GraphML STEP 2 result and the immutable canonical public artifact for all 1,062 complete routes. The observed maximum distance delta is 9.094947017729282e-13 m. Same-GraphML routing contains 10 raw cross-border rows; the canonical public contract contains 13 because three shelter municipality attributes are corrected from official address metadata. The canonical value 13 is the public contract.
 
@@ -32,7 +36,7 @@ For full-mesh demand, K=10 serves 290,411 of 306,220 and leaves 15,809 unserved;
 
 The WebGIS exposes STEP 8 as a clearly labelled scenario layer while canonical v4 remains default. Alternative route geometry is not invented; the comparison focuses on allocation state, destination changes and shelter utilisation using existing mesh and shelter geometries. Release requires Python unit tests, candidate double parity, allocation conservation/capacity gates, frozen production KPI regression, TypeScript build, WebKit desktop/iPhone smoke and canonical v4 regression.
 
-Canonical-output preservation is byte-level: all 33 pre-existing `public/data` files must remain SHA-256 identical. STEP 8/9 may only add the eight files under `capacity-planning/`; any changed, missing, or unexpected non-capacity file fails release.
+Canonical-output preservation is byte-level: all 33 pre-existing `public/data` files must remain SHA-256 identical. STEP 8/9 created eight additive files under `capacity-planning/`. STEP 10 adds four more diagnostic files under the same additive prefix, for 12 capacity-planning files total. Any changed, missing, or unexpected file outside that prefix fails release.
 
 ## STEP 9 — Added-capacity placement optimisation
 
