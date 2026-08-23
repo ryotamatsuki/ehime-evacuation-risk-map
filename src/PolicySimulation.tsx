@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { DATA_BASE, formatNumber, loadJson } from './dataContract'
 import {
   simulateCapacityAugmentation,
   type SimulationRiskRow,
@@ -15,21 +16,8 @@ interface PolicySimulationProps {
   onClose: () => void
 }
 
-const BASE = import.meta.env.BASE_URL
 const CAPACITY_OPTIONS = [100, 500, 1000]
-
-async function loadJson<T>(path: string): Promise<T> {
-  const response = await fetch(path)
-  if (!response.ok) throw new Error(`${response.status} ${path}`)
-  return response.json() as Promise<T>
-}
-
-const formatNumber = (value: number, digits = 0): string => new Intl.NumberFormat('ja-JP', {
-  maximumFractionDigits: digits,
-  minimumFractionDigits: digits,
-}).format(value)
-
-const formatPressure = (value: number): string => `${formatNumber(value * 100, value < 10 ? 0 : 0)}%`
+const formatPressure = (value: number): string => `${formatNumber(value * 100)}%`
 
 export default function PolicySimulation({ open, onClose }: PolicySimulationProps) {
   const [capacityDelta, setCapacityDelta] = useState(500)
@@ -46,11 +34,11 @@ export default function PolicySimulation({ open, onClose }: PolicySimulationProp
         setLoading(true)
         setError(null)
         const [riskIndex, shelterRows] = await Promise.all([
-          loadJson<AssetIndexItem[]>(`${BASE}data/risk/index.json`),
-          loadJson<SimulationShelterRow[]>(`${BASE}data/shelters/capacity_pressure.json`),
+          loadJson<AssetIndexItem[]>(`${DATA_BASE}data/risk/index.json`),
+          loadJson<SimulationShelterRow[]>(`${DATA_BASE}data/shelters/capacity_pressure.json`),
         ])
         const documents = await Promise.all(
-          riskIndex.map((item) => loadJson<SimulationRiskRow[]>(`${BASE}data/${item.file}`)),
+          riskIndex.map((item) => loadJson<SimulationRiskRow[]>(`${DATA_BASE}data/${item.file}`)),
         )
         if (!active) return
         setRiskRows(documents.flat())
