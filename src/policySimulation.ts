@@ -1,3 +1,7 @@
+import { finiteNumber, POLICY_WEIGHTS, textValue } from './dataContract'
+
+export { finiteNumber } from './dataContract'
+
 export type SimulationRiskRow = Record<string, unknown> & {
   mesh_id?: string
   score_status?: string
@@ -43,25 +47,6 @@ export interface CapacitySimulationSummary {
   results: ShelterSimulationResult[]
 }
 
-const WEIGHTS = {
-  tsunami: 25,
-  vulnerable: 20,
-  walking: 25,
-  route: 15,
-  capacity: 15,
-} as const
-
-export const finiteNumber = (value: unknown): number | null => {
-  if (value === null || value === undefined || value === '') return null
-  const number = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(number) ? number : null
-}
-
-const textValue = (value: unknown): string | null => {
-  if (value === null || value === undefined || value === '') return null
-  return String(value)
-}
-
 export const capacityComponentFromPressure = (pressure: number): number => Math.min(Math.max(pressure * 100, 0), 100)
 
 export const simulatedFiveComponentScore = (row: SimulationRiskRow, simulatedCapacityComponent: number): number | null => {
@@ -72,11 +57,11 @@ export const simulatedFiveComponentScore = (row: SimulationRiskRow, simulatedCap
   const route = finiteNumber(row.route_inundation_exposure_component)
   if (tsunami === null || vulnerable === null || walking === null || route === null) return null
   return (
-    tsunami * WEIGHTS.tsunami
-    + vulnerable * WEIGHTS.vulnerable
-    + walking * WEIGHTS.walking
-    + route * WEIGHTS.route
-    + simulatedCapacityComponent * WEIGHTS.capacity
+    tsunami * POLICY_WEIGHTS.tsunami
+    + vulnerable * POLICY_WEIGHTS.vulnerable
+    + walking * POLICY_WEIGHTS.walking
+    + route * POLICY_WEIGHTS.route
+    + simulatedCapacityComponent * POLICY_WEIGHTS.capacity
   ) / 100
 }
 
@@ -103,9 +88,13 @@ export const simulateCapacityAugmentation = (
     const assignedDemand = finiteNumber(shelter.assigned_demand_area_weighted)
     if (!shelterKey || baselineCapacity === null || baselineCapacity <= 0 || assignedDemand === null || assignedDemand < 0) continue
 
+    // STEP 7 consumes the canonical STEP 4 pressure.  Missing pressure is not
+    // reconstructed from demand/capacity because that would silently create a
+    // second source of truth for the baseline.
+    const baselinePressure = finiteNumber(shelter.capacity_pressure_area_weighted)
+    if (baselinePressure === null) continue
+
     const simulatedCapacity = baselineCapacity + delta
-    const fallbackPressure = assignedDemand / baselineCapacity
-    const baselinePressure = finiteNumber(shelter.capacity_pressure_area_weighted) ?? fallbackPressure
     const simulatedPressure = assignedDemand / simulatedCapacity
     const simulatedComponent = capacityComponentFromPressure(simulatedPressure)
     const affectedRows = completeByShelter.get(shelterKey) ?? []
@@ -114,7 +103,11 @@ export const simulateCapacityAugmentation = (
       const canonical = finiteNumber(row.evacuation_difficulty_score)
       const simulated = simulatedFiveComponentScore(row, simulatedComponent)
       if (canonical === null || simulated === null) continue
-      reductions.push(Math.max(0, canonical - simulated))
+      const reduction = canonical - simulated
+      if (reduction < -1e-8) {
+        throw new Error(`capacity augmentation increased score for mesh ${textValue(row.mesh_id) ?? 'unknown'}`)
+      }
+      reductions.push(Math.max(0, reduction))
     }
 
     const totalScoreReduction = reductions.reduce((sum, value) => sum + value, 0)
