@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import { centroid } from '@turf/turf'
+import { DATA_BASE, formatNumber, loadJson, recordNumber, recordText, type JsonRecord } from './dataContract'
 
-type JsonRecord = Record<string, unknown>
-type ModeId = 'current' | 'elderly' | 'capacity' | 'simulation'
+type ModeId = 'current' | 'elderly' | 'capacity'
 type MetricId = 'walking' | 'tsunami' | 'aging65' | 'route' | 'score' | 'capacity'
 type Coordinate = [number, number]
 type IconName = 'people' | 'clock' | 'elderly' | 'warning' | 'shelter' | 'route' | 'wave' | 'database' | 'distance' | 'walk' | 'school' | 'info'
@@ -52,7 +52,7 @@ interface InundatedSegment {
   coordinates?: Coordinate[]
 }
 
-const BASE = import.meta.env.BASE_URL
+const BASE = DATA_BASE
 const GSI_PALE_TILES = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'
 const GSI_TSUNAMI_TILES = 'https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_pref_data/38/{z}/{x}/{y}.png'
 
@@ -60,7 +60,6 @@ const MODE_LABELS: Record<ModeId, string> = {
   current: '現状',
   elderly: '高齢者想定',
   capacity: '避難場所容量',
-  simulation: '対策シミュレーション',
 }
 
 const METRICS: Record<MetricId, { label: string; unit: string; note: string }> = {
@@ -87,34 +86,13 @@ const ROUTE_STATUS_LABELS: Record<string, string> = {
   all_candidate_shelters_snap_excluded: '候補避難場所を接続距離基準で除外',
 }
 
-const toNumber = (row: JsonRecord | undefined | null, key: string): number | null => {
-  if (!row) return null
-  const value = row[key]
-  if (value === null || value === undefined || value === '') return null
-  const number = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(number) ? number : null
-}
-
-const toText = (row: JsonRecord | undefined | null, key: string): string | null => {
-  if (!row) return null
-  const value = row[key]
-  return value === null || value === undefined || value === '' ? null : String(value)
-}
-
-const formatNumber = (value: number | null, digits = 0): string => {
-  if (value === null || !Number.isFinite(value)) return '—'
-  return new Intl.NumberFormat('ja-JP', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
-}
+const toNumber = recordNumber
+const toText = recordText
 
 const formatPercent = (value: number | null, digits = 1): string => value === null ? '—' : `${formatNumber(value * 100, digits)}%`
 const formatPct100 = (value: number | null, digits = 0): string => value === null ? '—' : `${formatNumber(value, digits)}%`
 const formatMeters = (value: number | null): string => value === null ? '—' : value >= 1000 ? `${formatNumber(value / 1000, 2)}km` : `${formatNumber(value, 0)}m`
 
-async function loadJson<T>(path: string): Promise<T> {
-  const response = await fetch(path)
-  if (!response.ok) throw new Error(`${response.status} ${path}`)
-  return response.json() as Promise<T>
-}
 
 const canonicalPolicyScore = (row: RiskRow): number | null => {
   // STEP 4 is the single source of truth for the five-component policy score.
@@ -508,7 +486,6 @@ function AppCorrected() {
   }, [municipality, selectedRow])
 
   const setModeAndMetric = (next: ModeId) => {
-    if (next === 'simulation') return
     setMode(next)
     if (next === 'capacity') setMetric('capacity')
     else setMetric('walking')
@@ -534,7 +511,7 @@ function AppCorrected() {
       </header>
 
       <nav className="mode-strip" aria-label="分析モード">
-        {(Object.keys(MODE_LABELS) as ModeId[]).map((id) => { const disabled = id === 'simulation' || (id === 'capacity' && !capacityTrusted); return <button key={id} className={`${mode === id ? 'active' : ''} ${disabled ? 'coming-soon' : ''}`} onClick={() => setModeAndMetric(id)} disabled={disabled}>{MODE_LABELS[id]}{id === 'simulation' && <small>準備中</small>}{id === 'capacity' && !capacityTrusted && <small>容量データなし</small>}</button> })}
+        {(Object.keys(MODE_LABELS) as ModeId[]).map((id) => { const disabled = id === 'capacity' && !capacityTrusted; return <button key={id} className={`${mode === id ? 'active' : ''} ${disabled ? 'coming-soon' : ''}`} onClick={() => setModeAndMetric(id)} disabled={disabled}>{MODE_LABELS[id]}{id === 'capacity' && !capacityTrusted && <small>容量データなし</small>}</button> })}
       </nav>
 
       <section className="kpi-strip" aria-label="主要指標">

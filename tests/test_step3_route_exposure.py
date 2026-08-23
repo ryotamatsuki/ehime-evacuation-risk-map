@@ -16,12 +16,12 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 from aggregate_step2_routes import read_route_files  # noqa: E402
 from build_tsunami_exposure import PALETTE  # noqa: E402
 from calculate_evacuation_routes_v2 import route_network_coordinates  # noqa: E402
-from calculate_route_exposure import (  # noqa: E402
-    calculate_route,
-    route_coordinates_for_row,
-    validate_result,
+from calculate_route_exposure_step3 import (  # noqa: E402
+    build_modeled_route,
+    load_routes,
+    validate,
 )
-from calculate_route_exposure_step3 import build_modeled_route, load_routes  # noqa: E402
+from route_exposure_sampler import calculate_route, route_coordinates_for_row  # noqa: E402
 from routing_foundation_qa import PROJECTED_CRS  # noqa: E402
 
 
@@ -166,14 +166,14 @@ def test_transparent_pixel_in_present_tile_is_known_non_inundated():
     assert result["route_classified_coverage_ratio"] == 1.0
 
 
-def test_release_gate_preserves_unavailable_routes():
+def test_active_step3_release_gate_preserves_unavailable_routes():
     result = pd.DataFrame(
         [
             {
                 "mesh_id": "a",
                 "route_status": "complete",
                 "route_exposure_status": "complete",
-                "route_network_geometry_distance_m": 100.0,
+                "route_modeled_geometry_distance_m": 100.0,
                 "route_inundation_distance_m": 25.0,
                 "route_inundation_ratio": 0.25,
                 "route_tsunami_sample_count": 4,
@@ -181,12 +181,14 @@ def test_release_gate_preserves_unavailable_routes():
                 "route_classified_coverage_ratio": 1.0,
                 "route_tile_absent_sample_count": 0,
                 "route_unclassified_sample_count": 0,
+                "network_path_distance_m": 80.0,
+                "total_walking_distance_m": 100.0,
             },
             {
                 "mesh_id": "b",
                 "route_status": "no_network_path",
                 "route_exposure_status": "route_unavailable",
-                "route_network_geometry_distance_m": None,
+                "route_modeled_geometry_distance_m": None,
                 "route_inundation_distance_m": None,
                 "route_inundation_ratio": None,
                 "route_tsunami_sample_count": 0,
@@ -194,10 +196,12 @@ def test_release_gate_preserves_unavailable_routes():
                 "route_classified_coverage_ratio": None,
                 "route_tile_absent_sample_count": 0,
                 "route_unclassified_sample_count": 0,
+                "network_path_distance_m": None,
+                "total_walking_distance_m": None,
             },
         ]
     )
-    failures, qa = validate_result(result, expected_rows=2, expected_complete_routes=1)
+    failures, qa = validate(result, expected_rows=2, expected_complete_routes=1)
     assert failures == []
     assert qa["release_gate"]["pass"] is True
     assert qa["unavailable_routes"] == 1

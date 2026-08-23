@@ -3,10 +3,26 @@ name: Routing Foundation STEP 1
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'data/processed_population_mesh.csv'
+      - 'data/processed_shelters.csv'
+      - 'data/tsunami_exposure.csv'
+      - 'scripts/download_population.py'
+      - 'scripts/build_walking_network.py'
+      - 'scripts/routing_foundation_qa.py'
+      - 'scripts/select_mesh_origins.py'
+      - 'scripts/enforce_step1_gate.py'
+      - 'tests/test_routing_foundation.py'
+      - 'requirements.txt'
+      - '.github/workflows/routing-foundation-step1.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: routing-foundation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   unit:

@@ -80,7 +80,7 @@ def simulate(
             continue
         baseline_pressure = number(shelter.get("capacity_pressure_area_weighted"))
         if baseline_pressure is None:
-            baseline_pressure = demand / capacity
+            continue
         simulated_capacity = capacity + delta
         simulated_pressure = demand / simulated_capacity
         simulated_component = min(max(simulated_pressure * 100.0, 0.0), 100.0)
@@ -90,7 +90,10 @@ def simulate(
             simulated_score = score_with_capacity_component(row, simulated_component)
             if canonical is None or simulated_score is None:
                 continue
-            reductions.append(max(0.0, canonical - simulated_score))
+            reduction = canonical - simulated_score
+            if reduction < -1e-8:
+                raise ValueError(f"capacity augmentation increased score for mesh {row.get('mesh_id')}")
+            reductions.append(max(0.0, reduction))
         candidates.append(
             {
                 "shelter_key": str(key),

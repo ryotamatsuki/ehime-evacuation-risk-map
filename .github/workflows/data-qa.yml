@@ -3,30 +3,52 @@ name: Data QA
 on:
   push:
     branches: [main]
+    paths:
+      - 'data/processed_population_mesh.csv'
+      - 'data/processed_shelters.csv'
+      - 'data/tsunami_exposure.csv'
+      - 'public/data/population/**'
+      - 'scripts/validate_source_data.py'
+      - 'requirements.txt'
+      - '.github/workflows/data-qa.yml'
   pull_request:
+    branches: [main]
+    paths:
+      - 'data/processed_population_mesh.csv'
+      - 'data/processed_shelters.csv'
+      - 'data/tsunami_exposure.csv'
+      - 'public/data/population/**'
+      - 'scripts/validate_source_data.py'
+      - 'requirements.txt'
+      - '.github/workflows/data-qa.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  validate:
+  validate-source-data:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install data dependencies
-        run: python -m pip install -r requirements.txt
-      - name: Validate processed data
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Validate stable committed source/intermediate data
         run: >-
-          python scripts/validate_data.py
+          python scripts/validate_source_data.py
           --population-csv data/processed_population_mesh.csv
           --shelters-csv data/processed_shelters.csv
-          --routes-dir public/data/routes
-          --risk-dir public/data/risk
+          --tsunami-exposure-csv data/tsunami_exposure.csv
           --population-geojson-dir public/data/population
-          --out data/qa/validation_report.json
+          --out data/qa/source_validation_report.json
           --strict
+      - name: Upload source QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-data-qa
+          path: data/qa/source_validation_report.json
+          retention-days: 14

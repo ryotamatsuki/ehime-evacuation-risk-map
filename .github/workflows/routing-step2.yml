@@ -4,6 +4,24 @@ name: Analysis Core STEP 2-4 + Corrected Public Export
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'data/processed_population_mesh.csv'
+      - 'data/processed_shelters.csv'
+      - 'data/tsunami_exposure.csv'
+      - 'scripts/download_population.py'
+      - 'scripts/build_walking_network.py'
+      - 'scripts/calculate_evacuation_routes_v2.py'
+      - 'scripts/aggregate_step2_routes.py'
+      - 'scripts/calculate_route_exposure_step3.py'
+      - 'scripts/route_exposure_sampler.py'
+      - 'scripts/calculate_step4_demand_capacity_risk.py'
+      - 'scripts/export_corrected_public_data.py'
+      - 'tests/test_step2_routing.py'
+      - 'tests/test_step3_route_exposure.py'
+      - 'tests/test_step4_demand_capacity_risk.py'
+      - 'tests/test_final_export.py'
+      - 'requirements.txt'
+      - '.github/workflows/routing-step2.yml'
   push:
     branches: [main]
   workflow_dispatch:
@@ -14,8 +32,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: corrected-analysis-${{ github.ref }}
-  cancel-in-progress: false
+  group: corrected-analysis-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   unit:

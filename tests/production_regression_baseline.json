@@ -1,0 +1,45 @@
+{
+  "analysis": {
+    "target_meshes": 1090,
+    "complete_routes": 1062,
+    "route_unavailable": 28,
+    "cross_border_routes": 13,
+    "complete_scores": 813,
+    "capacity_missing_scores": 128,
+    "core_data_incomplete": 121,
+    "area_weighted_over_capacity_shelters": 35,
+    "full_mesh_over_capacity_shelters": 72
+  },
+  "step5": {
+    "scenario_count": 12,
+    "robust_top10pct_all_scenarios_n": 69,
+    "robust_top50_all_scenarios_n": 42,
+    "equal_weight_spearman_vs_baseline": 0.9894182482934234
+  },
+  "step7": {
+    "known_capacity_shelters": 272,
+    "scenarios": [
+      {
+        "capacity_delta": 100.0,
+        "simulated_over_capacity_shelters": 34,
+        "resolved_over_capacity_shelters": 1,
+        "affected_complete_meshes": 813,
+        "total_score_reduction": 192.96356787366932
+      },
+      {
+        "capacity_delta": 500.0,
+        "simulated_over_capacity_shelters": 19,
+        "resolved_over_capacity_shelters": 16,
+        "affected_complete_meshes": 813,
+        "total_score_reduction": 713.8826867578774
+      },
+      {
+        "capacity_delta": 1000.0,
+        "simulated_over_capacity_shelters": 13,
+        "resolved_over_capacity_shelters": 22,
+        "affected_complete_meshes": 813,
+        "total_score_reduction": 1185.482195035836
+      }
+    ]
+  }
+}
