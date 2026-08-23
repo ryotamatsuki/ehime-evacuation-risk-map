@@ -1,5 +1,6 @@
 name: STEP 7.5 Temporary Refactor Applier
 
+# Temporary branch-only tool. Removed before PR merge.
 on:
   push:
     branches: ['refactor/step7-5-debt-hardening']
