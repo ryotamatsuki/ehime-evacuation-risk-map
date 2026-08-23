@@ -7,7 +7,7 @@ import pathlib
 import pandas as pd
 from calculate_step4_demand_capacity_risk import prepare_capacities
 from capacity_allocation import solve_capacity_allocation
-from capacity_planning_io import load_public_analysis
+from capacity_planning_io import load_public_analysis, normalize_capacity_contract
 
 EXPECTED_TARGET_ROWS = 1090
 PRODUCTION_CANDIDATE_LIMIT = 10
@@ -49,7 +49,7 @@ def run_step8(candidates: pd.DataFrame, mesh_analysis: pd.DataFrame, capacities:
 
 def main():
     p=argparse.ArgumentParser(); p.add_argument("--candidates-csv",type=pathlib.Path,required=True); p.add_argument("--public-data-root",type=pathlib.Path,required=True); p.add_argument("--shelters-csv",type=pathlib.Path,required=True); p.add_argument("--out-dir",type=pathlib.Path,required=True); p.add_argument("--out-qa",type=pathlib.Path,required=True); p.add_argument("--expected-rows",type=int,default=EXPECTED_TARGET_ROWS); a=p.parse_args()
-    candidates=pd.read_csv(a.candidates_csv,encoding="utf-8-sig",dtype={"mesh_id":str,"shelter_common_id":str}); mesh,step4_shelters,metadata=load_public_analysis(a.public_data_root); source=pd.read_csv(a.shelters_csv,encoding="utf-8-sig",dtype={"common_id":str}); capacities,ambiguous=prepare_capacities(source)
+    candidates=pd.read_csv(a.candidates_csv,encoding="utf-8-sig",dtype={"mesh_id":str,"shelter_common_id":str}); mesh,step4_shelters,metadata=load_public_analysis(a.public_data_root); source=pd.read_csv(a.shelters_csv,encoding="utf-8-sig",dtype={"common_id":str}); capacities,ambiguous=prepare_capacities(source); capacities=normalize_capacity_contract(capacities)
     used=set(candidates["shelter_key"].astype(str)); selected_ambiguous=sorted(used & set(ambiguous))
     if selected_ambiguous: raise SystemExit(f"STEP 8 candidate graph contains {len(selected_ambiguous)} ambiguous shelter identities")
     results,qa,failures=run_step8(candidates,mesh,capacities,step4_shelters,expected_rows=a.expected_rows); qa["canonical_analysis_source_sha"]=metadata.get("analysis_source_sha")
