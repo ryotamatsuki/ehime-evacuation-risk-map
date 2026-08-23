@@ -31,8 +31,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: corrected-analysis-${{ github.ref }}
-  cancel-in-progress: false
+  group: corrected-analysis-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   unit:
