@@ -99,3 +99,14 @@ def test_expensive_analysis_pr_workflows_are_path_scoped_but_main_release_is_not
     assert "    paths:" in pull_request_block
     assert "    paths:" not in push_block.split("  workflow_dispatch:", 1)[0]
     assert "    paths:" in foundation.split("  workflow_dispatch:", 1)[0]
+
+
+def test_long_running_workflows_cancel_only_stale_pull_request_runs():
+    expected = "cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+    for path in (
+        ".github/workflows/application-quality.yml",
+        ".github/workflows/routing-foundation-step1.yml",
+        ".github/workflows/routing-step2.yml",
+    ):
+        workflow = read(path)
+        assert expected in workflow, f"PR-only cancellation policy missing: {path}"
