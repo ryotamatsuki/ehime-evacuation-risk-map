@@ -105,7 +105,7 @@
     "missing_files": [],
     "unexpected_non_capacity_files": [],
     "changed_files": [],
-    "allowed_capacity_planning_additions": 8,
+    "allowed_capacity_planning_additions": 12,
     "pass": true
   }
 }
