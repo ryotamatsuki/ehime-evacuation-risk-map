@@ -1,4 +1,4 @@
-name: STEP 8-9 Capacity Planning
+name: STEP 8-10 Capacity Planning
 
 on:
   pull_request:
@@ -11,13 +11,16 @@ on:
       - 'scripts/aggregate_step8_candidates.py'
       - 'scripts/run_step8_allocation.py'
       - 'scripts/run_step9_investment_optimization.py'
+      - 'scripts/analyze_step10_unserved_root_causes.py'
       - 'scripts/export_capacity_planning_public.py'
       - 'scripts/verify_canonical_unchanged.py'
       - 'tests/test_step8_capacity_allocation.py'
       - 'tests/test_step8_candidate_routing.py'
       - 'tests/test_step89_stages.py'
+      - 'tests/test_step10_root_cause.py'
       - 'tests/webkit_capacity_planning.mjs'
       - 'docs/step8-9-capacity-allocation.md'
+      - 'docs/step10-unserved-root-causes.md'
       - '.github/workflows/capacity-planning.yml'
       - 'requirements.txt'
       - 'package.json'
@@ -50,14 +53,14 @@ jobs:
           python-version: '3.12'
           cache: pip
       - run: python -m pip install -r requirements.txt
-      - name: STEP 8/9 model and routing unit gates
-        run: PYTHONPATH=scripts pytest -q tests/test_step8_capacity_allocation.py tests/test_step8_candidate_routing.py tests/test_step89_stages.py
+      - name: STEP 8-10 model and routing unit gates
+        run: PYTHONPATH=scripts pytest -q tests/test_step8_capacity_allocation.py tests/test_step8_candidate_routing.py tests/test_step89_stages.py tests/test_step10_root_cause.py
 
   route:
-    name: STEP 8B - ${{ matrix.code }} ${{ matrix.name }}
+    name: STEP 8B/10 - ${{ matrix.code }} ${{ matrix.name }}
     needs: unit
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 115
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -106,20 +109,20 @@ jobs:
       - name: Reproduce canonical STEP 2 on identical graph
         run: >-
           python scripts/calculate_evacuation_routes_v2.py --municipality-code '${{ matrix.code }}' --mesh-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --shelters-csv data/processed_shelters.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --graphml 'data/processed_network/${{ matrix.code }}.graphml' --out-csv 'artifact/routes-${{ matrix.code }}.csv' --out-qa 'artifact/routing-${{ matrix.code }}.json' --out-exclusions 'artifact/shelter-exclusions-step2-${{ matrix.code }}.csv' --buffer-m 3000
-      - name: Build K=10 reachable shelter candidates
+      - name: Build K=30 reachable shelter candidates
         run: >-
-          python scripts/calculate_step8_candidates.py --municipality-code '${{ matrix.code }}' --mesh-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --shelters-csv data/processed_shelters.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --graphml 'data/processed_network/${{ matrix.code }}.graphml' --out-candidates 'artifact/candidates-${{ matrix.code }}.csv' --out-status 'artifact/candidate-status-${{ matrix.code }}.csv' --out-qa 'artifact/candidate-qa-${{ matrix.code }}.json' --out-exclusions 'artifact/shelter-exclusions-step8-${{ matrix.code }}.csv' --buffer-m 3000 --candidate-limit 10
+          python scripts/calculate_step8_candidates.py --municipality-code '${{ matrix.code }}' --mesh-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --shelters-csv data/processed_shelters.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --graphml 'data/processed_network/${{ matrix.code }}.graphml' --out-candidates 'artifact/candidates-${{ matrix.code }}.csv' --out-status 'artifact/candidate-status-${{ matrix.code }}.csv' --out-qa 'artifact/candidate-qa-${{ matrix.code }}.json' --out-exclusions 'artifact/shelter-exclusions-step8-${{ matrix.code }}.csv' --buffer-m 3000 --candidate-limit 30
       - uses: actions/upload-artifact@v4
         with:
-          name: step8-candidates-${{ matrix.code }}
+          name: step10-candidates-${{ matrix.code }}
           path: artifact
           retention-days: 14
 
   aggregate:
-    name: STEP 8B aggregate + rank-1 double parity
+    name: STEP 8B aggregate + K30 double parity
     needs: route
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -131,7 +134,7 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - uses: actions/download-artifact@v4
         with:
-          pattern: step8-candidates-*
+          pattern: step10-candidates-*
           path: candidate-artifacts
           merge-multiple: true
       - name: Resolve one immutable canonical production source
@@ -177,24 +180,24 @@ jobs:
           PY
       - name: Rebuild same-GraphML STEP 2 aggregate gate
         run: >-
-          python scripts/aggregate_step2_routes.py --input-dir candidate-artifacts --population-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --expected-network-gap-mesh-ids '493253842,493262112' --out-csv data/step8/baseline_mesh_routes_v2.csv --out-qa data/qa/step8/baseline_step2_summary.json
-      - name: Exact same-GraphML + canonical artifact rank-1 parity
+          python scripts/aggregate_step2_routes.py --input-dir candidate-artifacts --population-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --expected-network-gap-mesh-ids '493253842,493262112' --out-csv data/step10/baseline_mesh_routes_v2.csv --out-qa data/qa/step10/baseline_step2_summary.json
+      - name: Exact same-GraphML + canonical artifact rank-1 parity at K30
         run: >-
-          PYTHONPATH=scripts python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step8/baseline_mesh_routes_v2.csv --canonical-public-data-root canonical/public/data --out-candidates-csv data/step8/multi_shelter_candidates_k10.csv --out-status-csv data/step8/candidate_status.csv --out-qa data/qa/step8/step8_candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 10
+          PYTHONPATH=scripts python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step10/baseline_mesh_routes_v2.csv --canonical-public-data-root canonical/public/data --out-candidates-csv data/step10/multi_shelter_candidates_k30.csv --out-status-csv data/step10/candidate_status.csv --out-qa data/qa/step10/candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 30
       - uses: actions/upload-artifact@v4
         with:
-          name: step8-candidate-aggregate
+          name: step10-candidate-aggregate
           path: |
-            data/step8
-            data/qa/step8
+            data/step10
+            data/qa/step10
             canonical/public
           retention-days: 30
 
   analysis:
-    name: STEP 8C-D + STEP 9 production analysis
+    name: STEP 8-10 production analysis
     needs: aggregate
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:
@@ -206,7 +209,7 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - uses: actions/download-artifact@v4
         with:
-          name: step8-candidate-aggregate
+          name: step10-candidate-aggregate
           path: candidate
       - name: Install the exact canonical artifact pinned by the parity gate
         run: |
@@ -218,27 +221,31 @@ jobs:
           import json
           from pathlib import Path
           m=json.loads(Path('canonical/public/data/metadata/analysis.json').read_text(encoding='utf-8'))
-          q=json.loads(Path('candidate/data/qa/step8/step8_candidate_summary.json').read_text(encoding='utf-8'))
+          q=json.loads(Path('candidate/data/qa/step10/candidate_summary.json').read_text(encoding='utf-8'))
           assert m['analysis_source_sha']==q['canonical_source_sha']
           assert str(m['workflow_run_id'])==str(q['canonical_source_workflow_run_id'])
           assert (m['target_meshes'],m['complete_routes'],m['route_unavailable'],m['cross_border_routes'])==(1090,1062,28,13)
           p=json.loads(Path('canonical/public/data/shelters/capacity_pressure.json').read_text(encoding='utf-8'))
           assert sum(1 for r in p if r.get('capacity_pressure_area_weighted') is not None and r['capacity_pressure_area_weighted']>1)==35
           assert q['release_gate']=='PASS' and q['canonical_rank1_identity_matches']==1062 and q['anchored_rank1_cross_border_routes']==13
-          print('canonical v4 + STEP 8B double parity regression PASS')
+          assert q['candidate_limit']==30
+          print('canonical v4 + STEP 10 K30 double parity regression PASS')
           PY
-      - name: STEP 8C-D capacity-constrained allocation
+      - name: STEP 8C-D frozen K10 capacity-constrained allocation
         run: >-
-          PYTHONPATH=scripts python scripts/run_step8_allocation.py --candidates-csv candidate/data/step8/multi_shelter_candidates_k10.csv --public-data-root canonical/public/data --shelters-csv data/processed_shelters.csv --out-dir analysis/step8 --out-qa analysis/qa/step8_summary.json --expected-rows 1090
-      - name: STEP 9 optimal added-capacity placement
+          PYTHONPATH=scripts python scripts/run_step8_allocation.py --candidates-csv candidate/data/step10/multi_shelter_candidates_k30.csv --public-data-root canonical/public/data --shelters-csv data/processed_shelters.csv --out-dir analysis/step8 --out-qa analysis/qa/step8_summary.json --expected-rows 1090
+      - name: STEP 9 frozen K10 optimal added-capacity placement
         run: >-
-          PYTHONPATH=scripts python scripts/run_step9_investment_optimization.py --candidates-csv candidate/data/step8/multi_shelter_candidates_k10.csv --public-data-root canonical/public/data --shelters-csv data/processed_shelters.csv --out-plan-csv analysis/step9/investment_plan.csv --out-qa analysis/qa/step9_summary.json --expected-rows 1090
-      - name: Export additive public capacity-planning contract
+          PYTHONPATH=scripts python scripts/run_step9_investment_optimization.py --candidates-csv candidate/data/step10/multi_shelter_candidates_k30.csv --public-data-root canonical/public/data --shelters-csv data/processed_shelters.csv --out-plan-csv analysis/step9/investment_plan.csv --out-qa analysis/qa/step9_summary.json --expected-rows 1090
+      - name: STEP 10 K20/K30 unserved root-cause decomposition
+        run: >-
+          PYTHONPATH=scripts python scripts/analyze_step10_unserved_root_causes.py --candidates-csv candidate/data/step10/multi_shelter_candidates_k30.csv --public-data-root canonical/public/data --shelters-csv data/processed_shelters.csv --step8-qa analysis/qa/step8_summary.json --out-dir analysis/step10 --out-qa analysis/qa/step10_summary.json --expected-rows 1090
+      - name: Export additive public STEP 8-10 contract
         env:
           PLANNING_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: >-
-          python scripts/export_capacity_planning_public.py --step8-dir analysis/step8 --step8-qa analysis/qa/step8_summary.json --step9-plan analysis/step9/investment_plan.csv --step9-qa analysis/qa/step9_summary.json --public-data-root canonical/public/data --planning-source-sha "$PLANNING_SHA" --workflow-run-id '${{ github.run_id }}'
-      - name: Prove canonical public output is byte-identical
+          python scripts/export_capacity_planning_public.py --step8-dir analysis/step8 --step8-qa analysis/qa/step8_summary.json --step9-plan analysis/step9/investment_plan.csv --step9-qa analysis/qa/step9_summary.json --step10-dir analysis/step10 --step10-qa analysis/qa/step10_summary.json --public-data-root canonical/public/data --planning-source-sha "$PLANNING_SHA" --workflow-run-id '${{ github.run_id }}'
+      - name: Prove canonical public output is byte-identical and STEP 8/9 frozen
         run: >-
           python scripts/verify_canonical_unchanged.py --before-root canonical-before --after-root canonical/public/data --out analysis/qa/canonical_unchanged.json
       - uses: actions/upload-artifact@v4
@@ -247,11 +254,11 @@ jobs:
           path: |
             canonical/public
             analysis
-            candidate/data/qa/step8/step8_candidate_summary.json
+            candidate/data/qa/step10/candidate_summary.json
           retention-days: 30
 
   browser:
-    name: STEP 8-9 build + WebKit release gate
+    name: STEP 8-10 build + WebKit release gate
     needs: analysis
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -275,6 +282,10 @@ jobs:
           test -s public/data/shelters/shelters.geojson
           test -s public/data/metadata/analysis.json
           test -s public/data/capacity-planning/metadata.json
+          test -s public/data/capacity-planning/step10-summary.json
+          test -s public/data/capacity-planning/step10-root-causes.json
+          test -s public/data/capacity-planning/step10-capacity-data-gaps.json
+          test -s public/data/capacity-planning/step10-municipality-summary.json
       - run: npm ci
       - name: TypeScript and Vite production build
         run: npm run build
@@ -292,7 +303,7 @@ jobs:
             sleep 1
           done
           cat /tmp/ehime-capacity-preview.log; exit 1
-      - name: STEP 8-9 desktop + iPhone WebKit smoke
+      - name: STEP 8-10 desktop + iPhone WebKit smoke
         env:
           BASE_URL: http://127.0.0.1:4173/ehime-evacuation-risk-map/
         run: node tests/webkit_capacity_planning.mjs
@@ -302,17 +313,17 @@ jobs:
           name: capacity-planning-release-evidence
           path: |
             site-input/analysis
-            site-input/candidate/data/qa/step8/step8_candidate_summary.json
-            data/qa/step8-9
+            site-input/candidate/data/qa/step10/candidate_summary.json
+            data/qa/step8-10
           retention-days: 30
-      - name: Upload STEP 8-9 GitHub Pages artifact
+      - name: Upload STEP 8-10 GitHub Pages artifact
         if: ${{ github.event_name == 'workflow_run' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
-    name: Deploy STEP 8-9 GitHub Pages
+    name: Deploy STEP 8-10 GitHub Pages
     if: ${{ github.event_name == 'workflow_run' }}
     needs: browser
     runs-on: ubuntu-latest
