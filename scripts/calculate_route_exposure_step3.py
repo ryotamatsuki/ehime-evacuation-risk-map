@@ -12,8 +12,8 @@ comparable modeled route for every complete STEP 2 row:
 The two off-network end connectors are straight analytical connectors.  They
 are not claimed to be verified pedestrian roads.  Edge-based origin access
 inside the OSM network follows the stored OSM edge geometry.  The underlying
-GSI raster sampler, including explicit absent-tile/unknown handling, is reused
-from ``calculate_route_exposure.py``.
+GSI raster sampler, including explicit absent-tile/unknown handling, lives in
+``route_exposure_sampler.py`` and has no separate production CLI.
 """
 
 from __future__ import annotations
@@ -25,14 +25,14 @@ import pathlib
 
 import pandas as pd
 
-from calculate_route_exposure import (
+from mesh500 import mesh_centroid
+from route_exposure_sampler import (
     EXPOSURE_COLUMNS,
     TileStore,
     calculate_route,
     empty_exposure,
     route_coordinates_for_row,
 )
-from mesh500 import mesh_centroid
 
 MODELED_DISTANCE_FIELD = "route_modeled_geometry_distance_m"
 DISTANCE_ABSOLUTE_OUTLIER_M = 100.0
