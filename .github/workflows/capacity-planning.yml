@@ -1,0 +1,325 @@
+name: STEP 8-9 Capacity Planning
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/capacity_allocation.py'
+      - 'scripts/capacity_planning_io.py'
+      - 'scripts/calculate_step8_candidates.py'
+      - 'scripts/aggregate_step8_candidates.py'
+      - 'scripts/run_step8_allocation.py'
+      - 'scripts/run_step9_investment_optimization.py'
+      - 'scripts/export_capacity_planning_public.py'
+      - 'scripts/verify_canonical_unchanged.py'
+      - 'tests/test_step8_capacity_allocation.py'
+      - 'tests/test_step8_candidate_routing.py'
+      - 'tests/test_step89_stages.py'
+      - 'tests/webkit_capacity_planning.mjs'
+      - 'docs/step8-9-capacity-allocation.md'
+      - '.github/workflows/capacity-planning.yml'
+      - 'requirements.txt'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_run:
+    workflows: ['Analysis Core STEP 2-4 + Corrected Public Export']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: capacity-planning-${{ github.event.pull_request.number || github.event.workflow_run.id || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: STEP 8/9 model and routing unit gates
+        run: PYTHONPATH=scripts pytest -q tests/test_step8_capacity_allocation.py tests/test_step8_candidate_routing.py tests/test_step89_stages.py
+
+  route:
+    name: STEP 8B - ${{ matrix.code }} ${{ matrix.name }}
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {code: '38201', name: '松山市'}
+          - {code: '38202', name: '今治市'}
+          - {code: '38203', name: '宇和島市'}
+          - {code: '38204', name: '八幡浜市'}
+          - {code: '38205', name: '新居浜市'}
+          - {code: '38206', name: '西条市'}
+          - {code: '38207', name: '大洲市'}
+          - {code: '38210', name: '伊予市'}
+          - {code: '38213', name: '四国中央市'}
+          - {code: '38214', name: '西予市'}
+          - {code: '38356', name: '上島町'}
+          - {code: '38401', name: '松前町'}
+          - {code: '38442', name: '伊方町'}
+          - {code: '38506', name: '愛南町'}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Download N03 boundary source
+        run: >-
+          python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
+      - name: Build one walking graph for canonical and candidate routing
+        shell: bash
+        run: |
+          set -euo pipefail
+          graph='data/processed_network/${{ matrix.code }}.graphml'
+          qa='data/qa/network-step8/${{ matrix.code }}_network.json'
+          for attempt in 1 2 3; do
+            rm -f "$graph" "$qa"
+            python scripts/build_walking_network.py --mesh-csv data/processed_population_mesh.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --out-dir data/processed_network --qa-dir data/qa/network-step8 --municipality '${{ matrix.name }}' --buffer-m 3000 --timeout 180 || true
+            if test -s "$graph" && python -c "import json,sys; p=json.load(open('$qa',encoding='utf-8')); sys.exit(0 if p.get('status')=='complete' else 1)"; then break; fi
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 20)); fi
+          done
+          test -s "$graph"
+          python -c "import json,sys; p=json.load(open('$qa',encoding='utf-8')); sys.exit(0 if p.get('status')=='complete' else 1)"
+      - name: Reproduce canonical STEP 2 on identical graph
+        run: >-
+          python scripts/calculate_evacuation_routes_v2.py --municipality-code '${{ matrix.code }}' --mesh-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --shelters-csv data/processed_shelters.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --graphml 'data/processed_network/${{ matrix.code }}.graphml' --out-csv 'artifact/routes-${{ matrix.code }}.csv' --out-qa 'artifact/routing-${{ matrix.code }}.json' --out-exclusions 'artifact/shelter-exclusions-step2-${{ matrix.code }}.csv' --buffer-m 3000
+      - name: Build K=10 reachable shelter candidates
+        run: >-
+          python scripts/calculate_step8_candidates.py --municipality-code '${{ matrix.code }}' --mesh-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --shelters-csv data/processed_shelters.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --graphml 'data/processed_network/${{ matrix.code }}.graphml' --out-candidates 'artifact/candidates-${{ matrix.code }}.csv' --out-status 'artifact/candidate-status-${{ matrix.code }}.csv' --out-qa 'artifact/candidate-qa-${{ matrix.code }}.json' --out-exclusions 'artifact/shelter-exclusions-step8-${{ matrix.code }}.csv' --buffer-m 3000 --candidate-limit 10
+      - uses: actions/upload-artifact@v4
+        with:
+          name: step8-candidates-${{ matrix.code }}
+          path: artifact
+          retention-days: 14
+
+  aggregate:
+    name: STEP 8B aggregate + rank-1 double parity
+    needs: route
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: step8-candidates-*
+          path: candidate-artifacts
+          merge-multiple: true
+      - name: Resolve one immutable canonical production source
+        id: canonical
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ '${{ github.event_name }}' = 'workflow_run' ]; then
+            run_id='${{ github.event.workflow_run.id }}'
+            head_sha='${{ github.event.workflow_run.head_sha }}'
+          else
+            api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/routing-step2.yml/runs?branch=main&status=success&event=push&per_page=1"
+            response="$(curl --fail --silent --show-error --location -H 'Accept: application/vnd.github+json' -H "Authorization: Bearer ${GH_TOKEN}" -H 'X-GitHub-Api-Version: 2022-11-28' "$api")"
+            run_id="$(jq -r '.workflow_runs[0].id // empty' <<<"$response")"
+            head_sha="$(jq -r '.workflow_runs[0].head_sha // empty' <<<"$response")"
+          fi
+          test -n "$run_id"; test -n "$head_sha"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "Pinned canonical production run: $run_id ($head_sha)"
+      - name: Download pinned corrected canonical artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: corrected-final-export
+          path: canonical
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.canonical.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify pinned canonical provenance
+        env:
+          EXPECTED_SHA: ${{ steps.canonical.outputs.head_sha }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          m=json.loads(Path('canonical/public/data/metadata/analysis.json').read_text(encoding='utf-8'))
+          assert m['analysis_version']=='analysis-core-v4-corrected-public'
+          assert m['analysis_source_sha']==os.environ['EXPECTED_SHA']
+          assert (m['target_meshes'],m['complete_routes'],m['route_unavailable'],m['cross_border_routes'])==(1090,1062,28,13)
+          print(f"canonical provenance PASS: {m['analysis_source_sha']} / run {m['workflow_run_id']}")
+          PY
+      - name: Rebuild same-GraphML STEP 2 aggregate gate
+        run: >-
+          python scripts/aggregate_step2_routes.py --input-dir candidate-artifacts --population-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --expected-network-gap-mesh-ids '493253842,493262112' --out-csv data/step8/baseline_mesh_routes_v2.csv --out-qa data/qa/step8/baseline_step2_summary.json
+      - name: Exact same-GraphML + canonical artifact rank-1 parity
+        run: >-
+          PYTHONPATH=scripts python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step8/baseline_mesh_routes_v2.csv --canonical-public-data-root canonical/public/data --out-candidates-csv data/step8/multi_shelter_candidates_k10.csv --out-status-csv data/step8/candidate_status.csv --out-qa data/qa/step8/step8_candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 10
+      - uses: actions/upload-artifact@v4
+        with:
+          name: step8-candidate-aggregate
+          path: |
+            data/step8
+            data/qa/step8
+            canonical/public
+          retention-days: 30
+
+  analysis:
+    name: STEP 8C-D + STEP 9 production analysis
+    needs: aggregate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: step8-candidate-aggregate
+          path: candidate
+      - name: Install the exact canonical artifact pinned by the parity gate
+        run: |
+          cp -R candidate/canonical ./canonical
+          cp -R canonical/public/data ./canonical-before
+      - name: Verify exact canonical v4 regression
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('canonical/public/data/metadata/analysis.json').read_text(encoding='utf-8'))
+          q=json.loads(Path('candidate/data/qa/step8/step8_candidate_summary.json').read_text(encoding='utf-8'))
+          assert m['analysis_source_sha']==q['canonical_source_sha']
+          assert str(m['workflow_run_id'])==str(q['canonical_source_workflow_run_id'])
+          assert (m['target_meshes'],m['complete_routes'],m['route_unavailable'],m['cross_border_routes'])==(1090,1062,28,13)
+          p=json.loads(Path('canonical/public/data/shelters/capacity_pressure.json').read_text(encoding='utf-8'))
+          assert sum(1 for r in p if r.get('capacity_pressure_area_weighted') is not None and r['capacity_pressure_area_weighted']>1)==35
+          assert q['release_gate']=='PASS' and q['canonical_rank1_identity_matches']==1062 and q['anchored_rank1_cross_border_routes']==13
+          print('canonical v4 + STEP 8B double parity regression PASS')
+          PY
+      - name: STEP 8C-D capacity-constrained allocation
+        run: >-
+          PYTHONPATH=scripts python scripts/run_step8_allocation.py --candidates-csv candidate/data/step8/multi_shelter_candidates_k10.csv --public-data-root canonical/public/data --shelters-csv data/processed_shelters.csv --out-dir analysis/step8 --out-qa analysis/qa/step8_summary.json --expected-rows 1090
+      - name: STEP 9 optimal added-capacity placement
+        run: >-
+          PYTHONPATH=scripts python scripts/run_step9_investment_optimization.py --candidates-csv candidate/data/step8/multi_shelter_candidates_k10.csv --public-data-root canonical/public/data --shelters-csv data/processed_shelters.csv --out-plan-csv analysis/step9/investment_plan.csv --out-qa analysis/qa/step9_summary.json --expected-rows 1090
+      - name: Export additive public capacity-planning contract
+        env:
+          PLANNING_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: >-
+          python scripts/export_capacity_planning_public.py --step8-dir analysis/step8 --step8-qa analysis/qa/step8_summary.json --step9-plan analysis/step9/investment_plan.csv --step9-qa analysis/qa/step9_summary.json --public-data-root canonical/public/data --planning-source-sha "$PLANNING_SHA" --workflow-run-id '${{ github.run_id }}'
+      - name: Prove canonical public output is byte-identical
+        run: >-
+          python scripts/verify_canonical_unchanged.py --before-root canonical-before --after-root canonical/public/data --out analysis/qa/canonical_unchanged.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capacity-planning-site-input
+          path: |
+            canonical/public
+            analysis
+            candidate/data/qa/step8/step8_candidate_summary.json
+          retention-days: 30
+
+  browser:
+    name: STEP 8-9 build + WebKit release gate
+    needs: analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: capacity-planning-site-input
+          path: site-input
+      - name: Overlay exact canonical + capacity planning data on tracked public base
+        run: |
+          mkdir -p public
+          cp -R site-input/canonical/public/. ./public/
+          test -s public/data/population/index.json
+          test -s public/data/shelters/shelters.geojson
+          test -s public/data/metadata/analysis.json
+          test -s public/data/capacity-planning/metadata.json
+      - run: npm ci
+      - name: TypeScript and Vite production build
+        run: npm run build
+      - name: Install Playwright WebKit
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps webkit
+      - name: Start production preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 > /tmp/ehime-capacity-preview.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ehime-evacuation-risk-map/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/ehime-capacity-preview.log; exit 1
+      - name: STEP 8-9 desktop + iPhone WebKit smoke
+        env:
+          BASE_URL: http://127.0.0.1:4173/ehime-evacuation-risk-map/
+        run: node tests/webkit_capacity_planning.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capacity-planning-release-evidence
+          path: |
+            site-input/analysis
+            site-input/candidate/data/qa/step8/step8_candidate_summary.json
+            data/qa/step8-9
+          retention-days: 30
+      - name: Upload STEP 8-9 GitHub Pages artifact
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy STEP 8-9 GitHub Pages
+    if: ${{ github.event_name == 'workflow_run' }}
+    needs: browser
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy capacity-planning site
+        id: deployment
+        uses: actions/deploy-pages@v4

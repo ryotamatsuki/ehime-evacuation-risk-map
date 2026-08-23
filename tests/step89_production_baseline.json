@@ -1,0 +1,111 @@
+{
+  "step8": {
+    "release_gate": "PASS",
+    "production_candidate_limit": 10,
+    "sensitivity_candidate_limit": 5,
+    "scenarios": {
+      "area_weighted": {
+        "target_meshes": 1090,
+        "raw_total_demand": 144255.71597633135,
+        "scaled_total_demand": 144257.1,
+        "served_demand": 139333.2,
+        "unserved_demand": 4923.899999999994,
+        "served_share": 0.965867191285559,
+        "known_capacity_shelters_in_candidate_graph": 604,
+        "meshes_with_no_candidate": 28,
+        "meshes_with_unknown_capacity_only": 139,
+        "meshes_fully_unserved": 166,
+        "meshes_split_across_shelters": 44,
+        "meshes_dominant_destination_changed": 328,
+        "cross_border_allocated_demand": 8661.7,
+        "demand_allocated_to_rank_gt1_candidate": 50073.0,
+        "baseline_fixed_assignment_over_capacity_shelters": 35,
+        "capacity_constrained_over_capacity_shelters": 0,
+        "saturated_known_capacity_shelters": 49,
+        "candidate_limit_sensitivity": {
+          "k5_served_demand": 138993.9,
+          "k10_served_demand": 139333.2,
+          "k5_unserved_demand": 5263.200000000012,
+          "k10_unserved_demand": 4923.899999999994,
+          "served_demand_gain_k10_vs_k5": 339.30000000001746
+        }
+      },
+      "full_mesh": {
+        "target_meshes": 1090,
+        "raw_total_demand": 306220.0,
+        "scaled_total_demand": 306220.0,
+        "served_demand": 290411.0,
+        "unserved_demand": 15809.0,
+        "served_share": 0.948373718241787,
+        "known_capacity_shelters_in_candidate_graph": 604,
+        "meshes_with_no_candidate": 28,
+        "meshes_with_unknown_capacity_only": 144,
+        "meshes_partially_unserved": 1,
+        "meshes_fully_unserved": 175,
+        "meshes_split_across_shelters": 86,
+        "meshes_dominant_destination_changed": 378,
+        "cross_border_allocated_demand": 14880.0,
+        "demand_allocated_to_rank_gt1_candidate": 100223.0,
+        "baseline_fixed_assignment_over_capacity_shelters": 72,
+        "capacity_constrained_over_capacity_shelters": 0,
+        "saturated_known_capacity_shelters": 99,
+        "candidate_limit_sensitivity": {
+          "k5_served_demand": 283008.0,
+          "k10_served_demand": 290411.0,
+          "k5_unserved_demand": 23212.0,
+          "k10_unserved_demand": 15809.0,
+          "served_demand_gain_k10_vs_k5": 7403.0
+        }
+      }
+    }
+  },
+  "step9": {
+    "release_gate": "PASS",
+    "candidate_limit": 10,
+    "budgets": [100, 500, 1000, 2000, 5000],
+    "scenarios": {
+      "area_weighted": {
+        "baseline": {
+          "served_demand": 139333.2,
+          "unserved_demand": 4923.899999999994
+        },
+        "budgets": [
+          {"budget": 100.0, "added_capacity_used": 100.0, "unserved_demand_reduction_vs_no_investment": 0.0, "investment_shelter_count": 1},
+          {"budget": 500.0, "added_capacity_used": 500.0, "unserved_demand_reduction_vs_no_investment": 0.0, "investment_shelter_count": 1},
+          {"budget": 1000.0, "added_capacity_used": 1000.0, "unserved_demand_reduction_vs_no_investment": 0.0, "investment_shelter_count": 1},
+          {"budget": 2000.0, "added_capacity_used": 2000.0, "unserved_demand_reduction_vs_no_investment": 0.0, "investment_shelter_count": 1},
+          {"budget": 5000.0, "added_capacity_used": 5000.0, "unserved_demand_reduction_vs_no_investment": 0.0, "investment_shelter_count": 5}
+        ]
+      },
+      "full_mesh": {
+        "baseline": {
+          "served_demand": 290411.0,
+          "unserved_demand": 15809.0
+        },
+        "budgets": [
+          {"budget": 100.0, "added_capacity_used": 100.0, "unserved_demand_reduction_vs_no_investment": 100.0, "investment_shelter_count": 1},
+          {"budget": 500.0, "added_capacity_used": 500.0, "unserved_demand_reduction_vs_no_investment": 226.0, "investment_shelter_count": 3},
+          {"budget": 1000.0, "added_capacity_used": 1000.0, "unserved_demand_reduction_vs_no_investment": 226.0, "investment_shelter_count": 3},
+          {"budget": 2000.0, "added_capacity_used": 2000.0, "unserved_demand_reduction_vs_no_investment": 226.0, "investment_shelter_count": 3},
+          {"budget": 5000.0, "added_capacity_used": 5000.0, "unserved_demand_reduction_vs_no_investment": 226.0, "investment_shelter_count": 4}
+        ]
+      }
+    },
+    "cross_scenario_plan_robustness": {
+      "100": {"shared_shelters": 0, "shelter_jaccard": 0.0, "shared_capacity": 0.0, "shared_capacity_share_of_budget": 0.0},
+      "500": {"shared_shelters": 1, "shelter_jaccard": 0.3333333333333333, "shared_capacity": 232.0, "shared_capacity_share_of_budget": 0.464},
+      "1000": {"shared_shelters": 1, "shelter_jaccard": 0.3333333333333333, "shared_capacity": 732.0, "shared_capacity_share_of_budget": 0.732},
+      "2000": {"shared_shelters": 1, "shelter_jaccard": 0.3333333333333333, "shared_capacity": 1732.0, "shared_capacity_share_of_budget": 0.866},
+      "5000": {"shared_shelters": 2, "shelter_jaccard": 0.2857142857142857, "shared_capacity": 3317.4, "shared_capacity_share_of_budget": 0.6634800000000001}
+    }
+  },
+  "canonical_unchanged": {
+    "check": "canonical_public_data_byte_identity",
+    "canonical_file_count": 33,
+    "missing_files": [],
+    "unexpected_non_capacity_files": [],
+    "changed_files": [],
+    "allowed_capacity_planning_additions": 8,
+    "pass": true
+  }
+}
