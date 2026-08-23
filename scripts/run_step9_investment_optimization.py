@@ -6,7 +6,7 @@ import json
 import pathlib
 import pandas as pd
 from calculate_step4_demand_capacity_risk import prepare_capacities
-from capacity_planning_io import load_public_analysis
+from capacity_planning_io import load_public_analysis, normalize_capacity_contract
 from capacity_allocation import compare_investment_plans, investment_plan_from_result, solve_capacity_allocation
 
 EXPECTED_TARGET_ROWS=1090
@@ -44,7 +44,7 @@ def optimise_investment(candidates:pd.DataFrame,mesh_analysis:pd.DataFrame,capac
 
 def main():
     p=argparse.ArgumentParser(); p.add_argument("--candidates-csv",type=pathlib.Path,required=True); p.add_argument("--public-data-root",type=pathlib.Path,required=True); p.add_argument("--shelters-csv",type=pathlib.Path,required=True); p.add_argument("--out-plan-csv",type=pathlib.Path,required=True); p.add_argument("--out-qa",type=pathlib.Path,required=True); p.add_argument("--expected-rows",type=int,default=EXPECTED_TARGET_ROWS); a=p.parse_args()
-    candidates=pd.read_csv(a.candidates_csv,encoding="utf-8-sig",dtype={"mesh_id":str,"shelter_common_id":str}); mesh,_pressure,metadata=load_public_analysis(a.public_data_root); shelters=pd.read_csv(a.shelters_csv,encoding="utf-8-sig",dtype={"common_id":str}); capacities,ambiguous=prepare_capacities(shelters); selected=sorted(set(candidates["shelter_key"].astype(str)) & set(ambiguous))
+    candidates=pd.read_csv(a.candidates_csv,encoding="utf-8-sig",dtype={"mesh_id":str,"shelter_common_id":str}); mesh,_pressure,metadata=load_public_analysis(a.public_data_root); shelters=pd.read_csv(a.shelters_csv,encoding="utf-8-sig",dtype={"common_id":str}); capacities,ambiguous=prepare_capacities(shelters); capacities=normalize_capacity_contract(capacities); selected=sorted(set(candidates["shelter_key"].astype(str)) & set(ambiguous))
     if selected: raise SystemExit(f"STEP 9 candidate graph contains {len(selected)} ambiguous shelter identities")
     plan,qa,failures=optimise_investment(candidates,mesh,capacities,expected_rows=a.expected_rows); qa["canonical_analysis_source_sha"]=metadata.get("analysis_source_sha"); a.out_plan_csv.parent.mkdir(parents=True,exist_ok=True); plan.to_csv(a.out_plan_csv,index=False,encoding="utf-8-sig"); a.out_qa.parent.mkdir(parents=True,exist_ok=True); a.out_qa.write_text(json.dumps(qa,ensure_ascii=False,indent=2),encoding="utf-8"); print(json.dumps(qa,ensure_ascii=False,indent=2))
     if failures: raise SystemExit("STEP 9 release gate failed: "+"; ".join(failures))
