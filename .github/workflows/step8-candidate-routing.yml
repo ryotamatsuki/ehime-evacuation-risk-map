@@ -1,0 +1,127 @@
+name: STEP 8B Candidate Routing Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/calculate_step8_candidates.py'
+      - 'scripts/aggregate_step8_candidates.py'
+      - 'tests/test_step8_candidate_routing.py'
+      - '.github/workflows/step8-candidate-routing.yml'
+      - 'scripts/calculate_evacuation_routes_v2.py'
+      - 'scripts/aggregate_step2_routes.py'
+      - 'scripts/build_walking_network.py'
+      - 'scripts/select_mesh_origins.py'
+      - 'requirements.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step8-candidates-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: STEP 8B candidate routing unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: pytest -q tests/test_step8_candidate_routing.py tests/test_step8_capacity_allocation.py
+
+  route:
+    name: STEP 8B - ${{ matrix.code }} ${{ matrix.name }}
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {code: '38201', name: '松山市'}
+          - {code: '38202', name: '今治市'}
+          - {code: '38203', name: '宇和島市'}
+          - {code: '38204', name: '八幡浜市'}
+          - {code: '38205', name: '新居浜市'}
+          - {code: '38206', name: '西条市'}
+          - {code: '38207', name: '大洲市'}
+          - {code: '38210', name: '伊予市'}
+          - {code: '38213', name: '四国中央市'}
+          - {code: '38214', name: '西予市'}
+          - {code: '38356', name: '上島町'}
+          - {code: '38401', name: '松前町'}
+          - {code: '38442', name: '伊方町'}
+          - {code: '38506', name: '愛南町'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Download N03 boundary source
+        run: >-
+          python -c "from pathlib import Path; from scripts.download_population import download, BOUNDARY_URL; download(BOUNDARY_URL, Path('data/raw/N03-20240101_38_GML.zip'))"
+      - name: Build walking network once for canonical and STEP 8B routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          graph='data/processed_network/${{ matrix.code }}.graphml'
+          qa='data/qa/network-step8/${{ matrix.code }}_network.json'
+          for attempt in 1 2 3; do
+            rm -f "$graph" "$qa"
+            python scripts/build_walking_network.py --mesh-csv data/processed_population_mesh.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --out-dir data/processed_network --qa-dir data/qa/network-step8 --municipality '${{ matrix.name }}' --buffer-m 3000 --timeout 180 || true
+            if test -s "$graph" && python -c "import json,sys; p=json.load(open('$qa', encoding='utf-8')); sys.exit(0 if p.get('status') == 'complete' else 1)"; then break; fi
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 20)); fi
+          done
+          test -s "$graph"
+          python -c "import json,sys; p=json.load(open('$qa', encoding='utf-8')); sys.exit(0 if p.get('status') == 'complete' else 1)"
+      - name: Reproduce canonical STEP 2 on the same graph
+        run: >-
+          python scripts/calculate_evacuation_routes_v2.py --municipality-code '${{ matrix.code }}' --mesh-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --shelters-csv data/processed_shelters.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --graphml 'data/processed_network/${{ matrix.code }}.graphml' --out-csv 'artifact/routes-${{ matrix.code }}.csv' --out-qa 'artifact/routing-${{ matrix.code }}.json' --out-exclusions 'artifact/shelter-exclusions-step2-${{ matrix.code }}.csv' --buffer-m 3000
+      - name: Build STEP 8B top-10 reachable shelter candidates
+        run: >-
+          python scripts/calculate_step8_candidates.py --municipality-code '${{ matrix.code }}' --mesh-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --shelters-csv data/processed_shelters.csv --boundary-zip data/raw/N03-20240101_38_GML.zip --graphml 'data/processed_network/${{ matrix.code }}.graphml' --out-candidates 'artifact/candidates-${{ matrix.code }}.csv' --out-status 'artifact/candidate-status-${{ matrix.code }}.csv' --out-qa 'artifact/candidate-qa-${{ matrix.code }}.json' --out-exclusions 'artifact/shelter-exclusions-step8-${{ matrix.code }}.csv' --buffer-m 3000 --candidate-limit 10
+      - uses: actions/upload-artifact@v4
+        with:
+          name: step8-candidates-${{ matrix.code }}
+          path: artifact
+          retention-days: 14
+
+  aggregate:
+    name: STEP 8B aggregate + exact STEP 2 parity gate
+    needs: route
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: step8-candidates-*
+          path: candidate-artifacts
+          merge-multiple: true
+      - name: Rebuild and gate canonical STEP 2 baseline
+        run: >-
+          python scripts/aggregate_step2_routes.py --input-dir candidate-artifacts --population-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --expected-network-gap-mesh-ids '493253842,493262112' --out-csv data/step8/baseline_mesh_routes_v2.csv --out-qa data/qa/step8/baseline_step2_summary.json
+      - name: Gate STEP 8B candidate table against canonical baseline
+        run: >-
+          python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step8/baseline_mesh_routes_v2.csv --out-candidates-csv data/step8/multi_shelter_candidates_k10.csv --out-status-csv data/step8/candidate_status.csv --out-qa data/qa/step8/step8_candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 10
+      - uses: actions/upload-artifact@v4
+        with:
+          name: step8-candidate-aggregate
+          path: |
+            data/step8
+            data/qa/step8
+          retention-days: 14
