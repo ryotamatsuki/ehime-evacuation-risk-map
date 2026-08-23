@@ -1,0 +1,48 @@
+name: Capacity Planning Unit QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/capacity_allocation.py'
+      - 'scripts/calculate_step8_candidates.py'
+      - 'scripts/aggregate_step8_candidates.py'
+      - 'scripts/run_step8_allocation.py'
+      - 'scripts/run_step9_investment_optimization.py'
+      - 'tests/test_step8_capacity_allocation.py'
+      - 'tests/test_step8_candidate_routing.py'
+      - '.github/workflows/capacity-planning-unit.yml'
+      - 'requirements.txt'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/capacity_allocation.py'
+      - 'scripts/calculate_step8_candidates.py'
+      - 'scripts/aggregate_step8_candidates.py'
+      - 'scripts/run_step8_allocation.py'
+      - 'scripts/run_step9_investment_optimization.py'
+      - 'tests/test_step8_capacity_allocation.py'
+      - 'tests/test_step8_candidate_routing.py'
+      - '.github/workflows/capacity-planning-unit.yml'
+      - 'requirements.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capacity-planning-unit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: STEP 8/9 pure allocation tests
+        run: pytest -q tests/test_step8_capacity_allocation.py
