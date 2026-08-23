@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify STEP 8/9 adds only capacity-planning files to canonical public data."""
+"""Verify canonical byte identity and freeze STEP 8/9 production KPIs."""
 from __future__ import annotations
 
 import argparse
@@ -7,7 +7,12 @@ import hashlib
 import json
 from pathlib import Path
 
+from verify_step89_production_regression import compare, load
+
 ALLOWED_PREFIX = "capacity-planning/"
+DEFAULT_BASELINE = Path("tests/step89_production_baseline.json")
+DEFAULT_STEP8 = Path("analysis/qa/step8_summary.json")
+DEFAULT_STEP9 = Path("analysis/qa/step9_summary.json")
 
 
 def digest(path: Path) -> str:
@@ -26,6 +31,29 @@ def manifest(root: Path, *, exclude_allowed: bool) -> dict[str, str]:
             continue
         result[relative] = digest(path)
     return result
+
+
+def verify_production_baseline(canonical_qa: dict[str, object]) -> None:
+    required = [DEFAULT_BASELINE, DEFAULT_STEP8, DEFAULT_STEP9]
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise SystemExit("STEP 8/9 production baseline inputs missing: " + ", ".join(missing))
+    expected = load(DEFAULT_BASELINE)
+    actual = {
+        "step8": load(DEFAULT_STEP8),
+        "step9": load(DEFAULT_STEP9),
+        "canonical_unchanged": canonical_qa,
+    }
+    failures: list[str] = []
+    compare(expected, actual, "", failures)
+    if failures:
+        print("STEP 8/9 production regression FAIL")
+        for failure in failures:
+            print(f"- {failure}")
+        raise SystemExit(1)
+    print("STEP 8/9 production regression PASS")
+    print("area_weighted served=139333.2 unserved=4923.9; full_mesh served=290411 unserved=15809")
+    print("full-mesh shortage reduction: +100=100; +500/+1000/+2000/+5000=226")
 
 
 def main() -> None:
@@ -59,6 +87,7 @@ def main() -> None:
     print(json.dumps(qa, ensure_ascii=False, indent=2))
     if not qa["pass"]:
         raise SystemExit("canonical public data changed outside capacity-planning/")
+    verify_production_baseline(qa)
 
 
 if __name__ == "__main__":
