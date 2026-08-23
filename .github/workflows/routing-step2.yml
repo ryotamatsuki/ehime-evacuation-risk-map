@@ -13,6 +13,7 @@ on:
       - 'scripts/calculate_evacuation_routes_v2.py'
       - 'scripts/aggregate_step2_routes.py'
       - 'scripts/calculate_route_exposure_step3.py'
+      - 'scripts/route_exposure_sampler.py'
       - 'scripts/calculate_step4_demand_capacity_risk.py'
       - 'scripts/export_corrected_public_data.py'
       - 'tests/test_step2_routing.py'
