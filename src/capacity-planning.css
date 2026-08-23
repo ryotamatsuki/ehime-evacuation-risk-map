@@ -33,14 +33,29 @@
 .capacity-planning-robustness { margin: 14px 24px; border: 1px solid #d8c6ec; border-radius: 12px; background: #f8f3fd; padding: 12px 14px; display: grid; gap: 4px; font-size: 12px; }
 .capacity-planning-robustness strong { color: #4b2b74; }
 .capacity-planning-robustness span { color: #657789; }
+.step10-cause-grid { margin: 14px 24px 0; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.step10-cause-grid article { min-width: 0; border: 1px solid #e3d8ee; border-radius: 12px; background: #fff; padding: 13px; display: grid; gap: 6px; box-shadow: 0 1px 3px rgba(13,39,66,.07); }
+.step10-cause-grid article[data-cause="route_unavailable"] { border-top: 4px solid #7d8792; }
+.step10-cause-grid article[data-cause="unknown_capacity_only"] { border-top: 4px solid #b67a22; }
+.step10-cause-grid article[data-cause="candidate_limit_recoverable"] { border-top: 4px solid #39735e; }
+.step10-cause-grid article[data-cause="known_capacity_saturation"] { border-top: 4px solid #9a3f4a; }
+.step10-cause-grid span { color: #4b2b74; font-size: 12px; font-weight: 800; }
+.step10-cause-grid strong { color: #132d44; font-size: 24px; line-height: 1.05; }
+.step10-cause-grid small { color: #6a7b89; font-size: 10px; line-height: 1.5; }
+.step10-sensitivity { align-items: stretch; }
+@media (max-width: 980px) {
+  .step10-cause-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
 @media (max-width: 780px) {
   .capacity-planning-launcher { right: 12px; bottom: 120px; z-index: 18; padding: 10px 13px; font-size: 12px; }
   .capacity-planning-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .capacity-planning-compare { grid-template-columns: 1fr; margin-left: 14px; margin-right: 14px; }
   .capacity-planning-section { margin-left: 14px; margin-right: 14px; }
   .capacity-planning-robustness { margin-left: 14px; margin-right: 14px; }
+  .step10-cause-grid { margin-left: 14px; margin-right: 14px; }
 }
 @media (max-width: 480px) {
   .capacity-planning-launcher { max-width: calc(100vw - 24px); font-size: 11px; }
   .capacity-planning-kpis { grid-template-columns: 1fr 1fr; }
+  .step10-cause-grid { grid-template-columns: 1fr; }
 }
