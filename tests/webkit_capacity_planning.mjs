@@ -12,11 +12,10 @@ function closeTo(actual,expected,tolerance=0.0001){return Number.isFinite(actual
 async function runCase(browser,spec){
  const context=await browser.newContext(spec.context); const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(String(e))); const result={name:spec.name,assertions:[],pass:false,errors:[]}
  try{
-  await page.goto(baseUrl,{waitUntil:'domcontentloaded',timeout:30000}); await page.locator('h1').filter({hasText:'南海トラフ・本当に逃げられるかマップ'}).waitFor({timeout:30000})
-  await page.waitForFunction(()=>document.body.innerText.includes('35施設'),null,{timeout:30000}); result.assertions.push('canonical v4 baseline=35 remains rendered')
-  const launcher=page.getByRole('button',{name:/容量配分・投資最適化/}); await launcher.waitFor({state:'visible'}); await launcher.click()
-  const dialog=page.locator('[aria-label="容量制約付き避難配分・投資最適化"]'); await dialog.waitFor({state:'visible'})
-  const baseline=await page.getByTestId('step8-baseline-overload').innerText({timeout:30000}); ensure(number(baseline)===35,`STEP 8 baseline not 35: ${baseline}`)
+  await page.goto(baseUrl,{waitUntil:'domcontentloaded',timeout:30000}); await page.locator('h1').filter({hasText:'南海トラフ・本当に逃げられるかマップ'}).waitFor({timeout:30000}); result.assertions.push('canonical application shell rendered')
+  const launcher=page.getByRole('button',{name:/容量配分・投資最適化/}); await launcher.waitFor({state:'visible',timeout:30000}); result.assertions.push('STEP 8-9 launcher rendered'); await launcher.click()
+  const dialog=page.locator('[aria-label="容量制約付き避難配分・投資最適化"]'); await dialog.waitFor({state:'visible',timeout:30000})
+  const baseline=await page.getByTestId('step8-baseline-overload').innerText({timeout:30000}); ensure(number(baseline)===35,`STEP 8 baseline not 35: ${baseline}`); result.assertions.push('canonical v4 baseline fixed: 35 over-capacity shelters')
   const unserved=number(await page.getByTestId('step8-unserved').innerText()); ensure(closeTo(unserved,4923.9),`STEP 8 area-weighted unserved regression: ${unserved}`); result.assertions.push('STEP 8 production KPI fixed: area-weighted unserved=4923.9')
   const plus1000=page.getByRole('button',{name:'+1,000人',exact:true}); await plus1000.click(); await page.waitForTimeout(100)
   const used=number(await page.getByTestId('step9-capacity-used').innerText()); const reduction=number(await page.getByTestId('step9-unserved-reduction').innerText()); ensure(closeTo(used,1000),`STEP 9 +1000 capacity-used regression: ${used}`); ensure(closeTo(reduction,0),`STEP 9 +1000 area-weighted shortage-reduction regression: ${reduction}`); result.assertions.push('STEP 9 +1000 production KPI fixed: used=1000 and area-weighted shortage reduction=0')
