@@ -267,10 +267,13 @@ jobs:
         with:
           name: capacity-planning-site-input
           path: site-input
-      - name: Install exact canonical + capacity planning public data
+      - name: Overlay exact canonical + capacity planning data on tracked public base
         run: |
-          rm -rf public
-          cp -R site-input/canonical/public ./public
+          mkdir -p public
+          cp -R site-input/canonical/public/. ./public/
+          test -s public/data/population/index.json
+          test -s public/data/shelters/shelters.geojson
+          test -s public/data/metadata/analysis.json
           test -s public/data/capacity-planning/metadata.json
       - run: npm ci
       - name: TypeScript and Vite production build
