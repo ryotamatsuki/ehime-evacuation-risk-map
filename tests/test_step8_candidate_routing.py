@@ -43,7 +43,7 @@ def test_double_parity_anchors_only_rank1_final_export_metadata(monkeypatch):
         {"mesh_id":"1","route_status":"complete","selected_shelter_common_id":"A","selected_shelter_name":"Alpha","shelter_municipality_code":"200","cross_border":True,"total_walking_distance_m":100.0},
         {"mesh_id":"2","route_status":"no_network_path","selected_shelter_common_id":None,"selected_shelter_name":None,"shelter_municipality_code":None,"cross_border":False,"total_walking_distance_m":None},
     ])
-    metadata = {"analysis_version":"analysis-core-v4-corrected-public","target_meshes":2,"complete_routes":1,"route_unavailable":1,"cross_border_routes":1,"cross_border_metadata_corrections_by_shelter_address":1,"analysis_source_sha":"abc","source_workflow_run_id":"42"}
+    metadata = {"analysis_version":"analysis-core-v4-corrected-public","target_meshes":2,"complete_routes":1,"route_unavailable":1,"cross_border_routes":1,"cross_border_metadata_correction":{"additional_cross_border_detected":1},"analysis_source_sha":"abc","workflow_run_id":"42"}
     monkeypatch.setattr("aggregate_step8_candidates.EXPECTED_CANONICAL_CROSS_BORDER", 1)
     out, _, qa, failures = aggregate_step8_candidates(candidates,status,baseline,canonical,metadata,expected_rows=2,expected_complete=1,candidate_limit=2)
     assert failures == []
@@ -53,4 +53,5 @@ def test_double_parity_anchors_only_rank1_final_export_metadata(monkeypatch):
     assert qa["same_graph_rank1_identity_matches"]==1
     assert qa["canonical_rank1_identity_matches"]==1
     assert qa["canonical_cross_border_metadata_corrections"]==1
+    assert qa["canonical_source_workflow_run_id"]=="42"
     assert qa["canonical_anchor_applied"] is True
