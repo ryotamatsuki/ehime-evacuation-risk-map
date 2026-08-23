@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from capacity_allocation import compare_investment_plans, investment_plan_from_result, solve_capacity_allocation
+from capacity_planning_io import normalize_capacity_contract
 
 
 def _frames():
@@ -70,3 +71,18 @@ def test_investment_plan_robustness_metrics():
     assert metrics["shelter_jaccard"] == pytest.approx(1/3)
     assert metrics["shared_capacity"] == pytest.approx(50.0)
     assert metrics["shared_capacity_share_of_budget"] == pytest.approx(0.5)
+
+
+def test_production_capacity_contract_keeps_candidate_identity_fields_canonical():
+    candidates, mesh, capacities = _frames()
+    capacities["capacity_status"] = "available"
+    capacities["common_id"] = ["source-1", "source-2"]
+    capacities["shelter_name"] = ["source A", "source B"]
+    capacities["shelter_city"] = ["city A", "city B"]
+
+    normalized = normalize_capacity_contract(capacities)
+
+    assert list(normalized.columns) == ["shelter_key", "shelter_capacity", "capacity_status"]
+    result = solve_capacity_allocation(candidates, mesh, normalized, demand_column="demand")
+    assert set(result.flow["shelter_name"]) == {"A", "B"}
+    assert result.summary["served_demand"] == pytest.approx(16.0)
