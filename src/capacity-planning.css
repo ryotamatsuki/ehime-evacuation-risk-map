@@ -1,0 +1,46 @@
+.capacity-planning-launcher {
+  position: fixed;
+  right: 20px;
+  bottom: 76px;
+  z-index: 80;
+  border: 0;
+  border-radius: 999px;
+  background: #4b2b74;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(53, 25, 88, 0.28);
+  padding: 12px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.capacity-planning-launcher span { border-radius: 999px; background: rgba(255,255,255,.15); padding: 3px 7px; font-size: 10px; letter-spacing: .08em; }
+.capacity-planning-launcher:hover,.capacity-planning-launcher:focus-visible { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(53,25,88,.34); }
+.capacity-planning-header { background: linear-gradient(135deg,#38205b,#674090); }
+.capacity-planning-section { margin: 22px 24px 8px; }
+.capacity-planning-section h3 { margin: 0 0 5px; font-size: 17px; color: #38205b; }
+.capacity-planning-section p { margin: 0; color: #657789; font-size: 12px; line-height: 1.6; }
+.capacity-planning-kpis { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.capacity-planning-compare { margin: 14px 24px 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.capacity-planning-compare article { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(13,39,66,.09); }
+.capacity-planning-compare h4 { margin: 0 0 10px; font-size: 13px; color: #38205b; }
+.capacity-planning-compare dl { margin: 0; display: grid; gap: 7px; }
+.capacity-planning-compare dl div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid #edf2f6; padding-bottom: 6px; }
+.capacity-planning-compare dt { color: #66798b; font-size: 11px; }
+.capacity-planning-compare dd { margin: 0; color: #152f46; font-size: 12px; font-weight: 800; }
+.capacity-planning-robustness { margin: 14px 24px; border: 1px solid #d8c6ec; border-radius: 12px; background: #f8f3fd; padding: 12px 14px; display: grid; gap: 4px; font-size: 12px; }
+.capacity-planning-robustness strong { color: #4b2b74; }
+.capacity-planning-robustness span { color: #657789; }
+@media (max-width: 780px) {
+  .capacity-planning-launcher { right: 12px; bottom: 120px; z-index: 18; padding: 10px 13px; font-size: 12px; }
+  .capacity-planning-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .capacity-planning-compare { grid-template-columns: 1fr; margin-left: 14px; margin-right: 14px; }
+  .capacity-planning-section { margin-left: 14px; margin-right: 14px; }
+  .capacity-planning-robustness { margin-left: 14px; margin-right: 14px; }
+}
+@media (max-width: 480px) {
+  .capacity-planning-launcher { max-width: calc(100vw - 24px); font-size: 11px; }
+  .capacity-planning-kpis { grid-template-columns: 1fr 1fr; }
+}
