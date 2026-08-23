@@ -8,6 +8,7 @@ const cases=[{name:'desktop-webkit',context:{viewport:{width:1440,height:1000}}}
 const report={test:'STEP 8-9 capacity planning Playwright WebKit smoke',native_safari_verified:false,note:'Playwright WebKit is a Safari-compatibility automation proxy, not native Safari or physical iPhone verification.',cases:[],pass:false}
 function ensure(c,m){if(!c) throw new Error(m)}
 function number(text){const m=String(text).replaceAll(',','').match(/-?[\d.]+/); return m?Number(m[0]):Number.NaN}
+function closeTo(actual,expected,tolerance=0.0001){return Number.isFinite(actual)&&Math.abs(actual-expected)<=tolerance}
 async function runCase(browser,spec){
  const context=await browser.newContext(spec.context); const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(String(e))); const result={name:spec.name,assertions:[],pass:false,errors:[]}
  try{
@@ -16,9 +17,9 @@ async function runCase(browser,spec){
   const launcher=page.getByRole('button',{name:/容量配分・投資最適化/}); await launcher.waitFor({state:'visible'}); await launcher.click()
   const dialog=page.locator('[aria-label="容量制約付き避難配分・投資最適化"]'); await dialog.waitFor({state:'visible'})
   const baseline=await page.getByTestId('step8-baseline-overload').innerText({timeout:30000}); ensure(number(baseline)===35,`STEP 8 baseline not 35: ${baseline}`)
-  const unserved=number(await page.getByTestId('step8-unserved').innerText()); ensure(Number.isFinite(unserved)&&unserved>=0,`invalid STEP 8 unserved: ${unserved}`); result.assertions.push('STEP 8 production allocation loaded')
+  const unserved=number(await page.getByTestId('step8-unserved').innerText()); ensure(closeTo(unserved,4923.9),`STEP 8 area-weighted unserved regression: ${unserved}`); result.assertions.push('STEP 8 production KPI fixed: area-weighted unserved=4923.9')
   const plus1000=page.getByRole('button',{name:'+1,000人',exact:true}); await plus1000.click(); await page.waitForTimeout(100)
-  const used=number(await page.getByTestId('step9-capacity-used').innerText()); const reduction=number(await page.getByTestId('step9-unserved-reduction').innerText()); ensure(Number.isFinite(used)&&used>=0&&used<=1000.0001,`STEP 9 budget violation: ${used}`); ensure(Number.isFinite(reduction)&&reduction>=-0.0001,`STEP 9 worsened shortage: ${reduction}`); result.assertions.push('STEP 9 +1000 budget respects bound and nonnegative shortage reduction')
+  const used=number(await page.getByTestId('step9-capacity-used').innerText()); const reduction=number(await page.getByTestId('step9-unserved-reduction').innerText()); ensure(closeTo(used,1000),`STEP 9 +1000 capacity-used regression: ${used}`); ensure(closeTo(reduction,0),`STEP 9 +1000 area-weighted shortage-reduction regression: ${reduction}`); result.assertions.push('STEP 9 +1000 production KPI fixed: used=1000 and area-weighted shortage reduction=0')
   await page.getByRole('button',{name:'容量配分を閉じる'}).click(); await dialog.waitFor({state:'hidden'})
   if(spec.name==='iphone-webkit'){const toggle=page.locator('.mobile-panel-toggle'); await toggle.waitFor({state:'visible'}); await toggle.click(); ensure(await page.locator('.diagnostic-panel.mobile-open').count()===1,'capacity launcher intercepted mobile diagnostic toggle'); result.assertions.push('mobile diagnostic panel remains reachable')}
   ensure(errors.length===0,`uncaught page errors: ${errors.join(' | ')}`); result.assertions.push('no uncaught page errors'); result.pass=true
