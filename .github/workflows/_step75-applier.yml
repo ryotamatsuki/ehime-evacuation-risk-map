@@ -1,22 +1,24 @@
 name: STEP 7.5 Temporary Refactor Applier
 
-# Temporary branch-only tool. Removed before PR merge.
+# Temporary branch-only tool. Removed before final QA/merge.
 on:
-  push:
-    branches: ['refactor/step7-5-debt-hardening']
+  pull_request:
+    branches: [main]
     paths:
       - '.github/workflows/_step75-applier.yml'
+      - 'scripts/_step75_apply.py'
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: refactor/step7-5-debt-hardening
+          ref: ${{ github.head_ref }}
       - run: python scripts/_step75_apply.py
       - name: Commit exact-match refactor
         run: |
@@ -25,4 +27,4 @@ jobs:
           git add src/AppCorrected.tsx src/policy-simulation.css .github/workflows/routing-step2.yml .github/workflows/routing-foundation-step1.yml scripts/validate_policy_simulation.py
           git diff --cached --check
           git commit -m 'refactor: apply STEP 7.5 exact-match cleanup'
-          git push origin HEAD:refactor/step7-5-debt-hardening
+          git push origin HEAD:${GITHUB_HEAD_REF}
