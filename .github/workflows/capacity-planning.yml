@@ -12,6 +12,7 @@ on:
       - 'scripts/run_step8_allocation.py'
       - 'scripts/run_step9_investment_optimization.py'
       - 'scripts/export_capacity_planning_public.py'
+      - 'scripts/verify_canonical_unchanged.py'
       - 'tests/test_step8_capacity_allocation.py'
       - 'tests/test_step8_candidate_routing.py'
       - 'tests/test_step89_stages.py'
@@ -115,9 +116,10 @@ jobs:
           retention-days: 14
 
   aggregate:
-    name: STEP 8B aggregate + exact STEP 2 parity
+    name: STEP 8B aggregate + rank-1 double parity
     needs: route
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -132,18 +134,60 @@ jobs:
           pattern: step8-candidates-*
           path: candidate-artifacts
           merge-multiple: true
-      - name: Rebuild canonical STEP 2 aggregate gate
+      - name: Resolve one immutable canonical production source
+        id: canonical
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ '${{ github.event_name }}' = 'workflow_run' ]; then
+            run_id='${{ github.event.workflow_run.id }}'
+            head_sha='${{ github.event.workflow_run.head_sha }}'
+          else
+            api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/routing-step2.yml/runs?branch=main&status=success&event=push&per_page=1"
+            response="$(curl --fail --silent --show-error --location -H 'Accept: application/vnd.github+json' -H "Authorization: Bearer ${GH_TOKEN}" -H 'X-GitHub-Api-Version: 2022-11-28' "$api")"
+            run_id="$(jq -r '.workflow_runs[0].id // empty' <<<"$response")"
+            head_sha="$(jq -r '.workflow_runs[0].head_sha // empty' <<<"$response")"
+          fi
+          test -n "$run_id"; test -n "$head_sha"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "Pinned canonical production run: $run_id ($head_sha)"
+      - name: Download pinned corrected canonical artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: corrected-final-export
+          path: canonical
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.canonical.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify pinned canonical provenance
+        env:
+          EXPECTED_SHA: ${{ steps.canonical.outputs.head_sha }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          m=json.loads(Path('canonical/public/data/metadata/analysis.json').read_text(encoding='utf-8'))
+          assert m['analysis_version']=='analysis-core-v4-corrected-public'
+          assert m['analysis_source_sha']==os.environ['EXPECTED_SHA']
+          assert (m['target_meshes'],m['complete_routes'],m['route_unavailable'],m['cross_border_routes'])==(1090,1062,28,13)
+          print(f"canonical provenance PASS: {m['analysis_source_sha']} / run {m['source_workflow_run_id']}")
+          PY
+      - name: Rebuild same-GraphML STEP 2 aggregate gate
         run: >-
           python scripts/aggregate_step2_routes.py --input-dir candidate-artifacts --population-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --expected-network-gap-mesh-ids '493253842,493262112' --out-csv data/step8/baseline_mesh_routes_v2.csv --out-qa data/qa/step8/baseline_step2_summary.json
-      - name: Exact rank-1 parity and candidate release gate
+      - name: Exact same-GraphML + canonical artifact rank-1 parity
         run: >-
-          PYTHONPATH=scripts python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step8/baseline_mesh_routes_v2.csv --out-candidates-csv data/step8/multi_shelter_candidates_k10.csv --out-status-csv data/step8/candidate_status.csv --out-qa data/qa/step8/step8_candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 10
+          PYTHONPATH=scripts python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step8/baseline_mesh_routes_v2.csv --canonical-public-data-root canonical/public/data --out-candidates-csv data/step8/multi_shelter_candidates_k10.csv --out-status-csv data/step8/candidate_status.csv --out-qa data/qa/step8/step8_candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 10
       - uses: actions/upload-artifact@v4
         with:
           name: step8-candidate-aggregate
           path: |
             data/step8
             data/qa/step8
+            canonical/public
           retention-days: 30
 
   analysis:
@@ -164,45 +208,24 @@ jobs:
         with:
           name: step8-candidate-aggregate
           path: candidate
-      - name: Resolve canonical production source
-        id: canonical
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
+      - name: Install the exact canonical artifact pinned by the parity gate
         run: |
-          set -euo pipefail
-          if [ '${{ github.event_name }}' = 'workflow_run' ]; then
-            run_id='${{ github.event.workflow_run.id }}'
-            head_sha='${{ github.event.workflow_run.head_sha }}'
-          else
-            api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/routing-step2.yml/runs?branch=main&status=success&event=push&per_page=1"
-            response="$(curl --fail --silent --show-error --location -H 'Accept: application/vnd.github+json' -H "Authorization: Bearer ${GH_TOKEN}" -H 'X-GitHub-Api-Version: 2022-11-28' "$api")"
-            run_id="$(jq -r '.workflow_runs[0].id // empty' <<<"$response")"
-            head_sha="$(jq -r '.workflow_runs[0].head_sha // empty' <<<"$response")"
-          fi
-          test -n "$run_id"; test -n "$head_sha"
-          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"; echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@v4
-        with:
-          name: corrected-final-export
-          path: canonical
-          repository: ${{ github.repository }}
-          run-id: ${{ steps.canonical.outputs.run_id }}
-          github-token: ${{ github.token }}
-      - name: Verify exact canonical provenance and v4 regression
-        env:
-          EXPECTED_SHA: ${{ steps.canonical.outputs.head_sha }}
+          cp -R candidate/canonical ./canonical
+          cp -R canonical/public/data ./canonical-before
+      - name: Verify exact canonical v4 regression
         run: |
           python - <<'PY'
-          import json, os
+          import json
           from pathlib import Path
           m=json.loads(Path('canonical/public/data/metadata/analysis.json').read_text(encoding='utf-8'))
-          assert m['analysis_version']=='analysis-core-v4-corrected-public'
-          assert m['analysis_source_sha']==os.environ['EXPECTED_SHA']
+          q=json.loads(Path('candidate/data/qa/step8/step8_candidate_summary.json').read_text(encoding='utf-8'))
+          assert m['analysis_source_sha']==q['canonical_source_sha']
+          assert str(m['source_workflow_run_id'])==str(q['canonical_source_workflow_run_id'])
           assert (m['target_meshes'],m['complete_routes'],m['route_unavailable'],m['cross_border_routes'])==(1090,1062,28,13)
           p=json.loads(Path('canonical/public/data/shelters/capacity_pressure.json').read_text(encoding='utf-8'))
           assert sum(1 for r in p if r.get('capacity_pressure_area_weighted') is not None and r['capacity_pressure_area_weighted']>1)==35
-          print('canonical v4 regression PASS')
+          assert q['release_gate']=='PASS' and q['canonical_rank1_identity_matches']==1062 and q['anchored_rank1_cross_border_routes']==13
+          print('canonical v4 + STEP 8B double parity regression PASS')
           PY
       - name: STEP 8C-D capacity-constrained allocation
         run: >-
@@ -215,6 +238,9 @@ jobs:
           PLANNING_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: >-
           python scripts/export_capacity_planning_public.py --step8-dir analysis/step8 --step8-qa analysis/qa/step8_summary.json --step9-plan analysis/step9/investment_plan.csv --step9-qa analysis/qa/step9_summary.json --public-data-root canonical/public/data --planning-source-sha "$PLANNING_SHA" --workflow-run-id '${{ github.run_id }}'
+      - name: Prove canonical public output is byte-identical
+        run: >-
+          python scripts/verify_canonical_unchanged.py --before-root canonical-before --after-root canonical/public/data --out analysis/qa/canonical_unchanged.json
       - uses: actions/upload-artifact@v4
         with:
           name: capacity-planning-site-input
