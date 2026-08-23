@@ -1,0 +1,27 @@
+name: STEP 7.5 Temporary Refactor Applier
+
+on:
+  push:
+    branches: ['refactor/step7-5-debt-hardening']
+    paths:
+      - '.github/workflows/_step75-applier.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/step7-5-debt-hardening
+      - run: python scripts/_step75_apply.py
+      - name: Commit exact-match refactor
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/AppCorrected.tsx src/policy-simulation.css .github/workflows/routing-step2.yml .github/workflows/routing-foundation-step1.yml scripts/validate_policy_simulation.py
+          git diff --cached --check
+          git commit -m 'refactor: apply STEP 7.5 exact-match cleanup'
+          git push origin HEAD:refactor/step7-5-debt-hardening
