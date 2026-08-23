@@ -20,11 +20,11 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
       - run: python scripts/_step75_apply.py
-      - name: Commit exact-match refactor
+      - name: Commit exact-match non-workflow refactor
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/AppCorrected.tsx src/policy-simulation.css .github/workflows/routing-step2.yml .github/workflows/routing-foundation-step1.yml scripts/validate_policy_simulation.py
+          git add src/AppCorrected.tsx src/policy-simulation.css scripts/validate_policy_simulation.py
           git diff --cached --check
           git commit -m 'refactor: apply STEP 7.5 exact-match cleanup'
           git push origin HEAD:${GITHUB_HEAD_REF}
