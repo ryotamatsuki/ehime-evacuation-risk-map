@@ -173,7 +173,7 @@ jobs:
           assert m['analysis_version']=='analysis-core-v4-corrected-public'
           assert m['analysis_source_sha']==os.environ['EXPECTED_SHA']
           assert (m['target_meshes'],m['complete_routes'],m['route_unavailable'],m['cross_border_routes'])==(1090,1062,28,13)
-          print(f"canonical provenance PASS: {m['analysis_source_sha']} / run {m['source_workflow_run_id']}")
+          print(f"canonical provenance PASS: {m['analysis_source_sha']} / run {m['workflow_run_id']}")
           PY
       - name: Rebuild same-GraphML STEP 2 aggregate gate
         run: >-
@@ -220,7 +220,7 @@ jobs:
           m=json.loads(Path('canonical/public/data/metadata/analysis.json').read_text(encoding='utf-8'))
           q=json.loads(Path('candidate/data/qa/step8/step8_candidate_summary.json').read_text(encoding='utf-8'))
           assert m['analysis_source_sha']==q['canonical_source_sha']
-          assert str(m['source_workflow_run_id'])==str(q['canonical_source_workflow_run_id'])
+          assert str(m['workflow_run_id'])==str(q['canonical_source_workflow_run_id'])
           assert (m['target_meshes'],m['complete_routes'],m['route_unavailable'],m['cross_border_routes'])==(1090,1062,28,13)
           p=json.loads(Path('canonical/public/data/shelters/capacity_pressure.json').read_text(encoding='utf-8'))
           assert sum(1 for r in p if r.get('capacity_pressure_area_weighted') is not None and r['capacity_pressure_area_weighted']>1)==35
