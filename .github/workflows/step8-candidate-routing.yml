@@ -33,7 +33,7 @@ jobs:
           python-version: '3.12'
           cache: pip
       - run: python -m pip install -r requirements.txt
-      - run: pytest -q tests/test_step8_candidate_routing.py tests/test_step8_capacity_allocation.py
+      - run: PYTHONPATH=scripts pytest -q tests/test_step8_candidate_routing.py tests/test_step8_capacity_allocation.py
 
   route:
     name: STEP 8B - ${{ matrix.code }} ${{ matrix.name }}
@@ -117,7 +117,7 @@ jobs:
           python scripts/aggregate_step2_routes.py --input-dir candidate-artifacts --population-csv data/processed_population_mesh.csv --tsunami-exposure-csv data/tsunami_exposure.csv --expected-network-gap-mesh-ids '493253842,493262112' --out-csv data/step8/baseline_mesh_routes_v2.csv --out-qa data/qa/step8/baseline_step2_summary.json
       - name: Gate STEP 8B candidate table against canonical baseline
         run: >-
-          python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step8/baseline_mesh_routes_v2.csv --out-candidates-csv data/step8/multi_shelter_candidates_k10.csv --out-status-csv data/step8/candidate_status.csv --out-qa data/qa/step8/step8_candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 10
+          PYTHONPATH=scripts python scripts/aggregate_step8_candidates.py --input-dir candidate-artifacts --baseline-routes-csv data/step8/baseline_mesh_routes_v2.csv --out-candidates-csv data/step8/multi_shelter_candidates_k10.csv --out-status-csv data/step8/candidate_status.csv --out-qa data/qa/step8/step8_candidate_summary.json --expected-rows 1090 --expected-complete 1062 --candidate-limit 10
       - uses: actions/upload-artifact@v4
         with:
           name: step8-candidate-aggregate
